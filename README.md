@@ -116,5 +116,5 @@ App disponible en: **http://localhost:5173**
 
 ## Historial de cambios
 
-Ver [`CHANGELOG.md`](./CHANGELOG.md) para el detalle completo de qué se migró,
+Ver [`CHANGELOG.md`](GUIOSPRO_FLOSS-main%202/CHANGELOG.md) para el detalle completo de qué se migró,
 qué se preservó y qué cambió respecto al sistema original (Python + flexx).
