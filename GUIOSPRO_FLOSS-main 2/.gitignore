@@ -1,0 +1,52 @@
+# ─── Python ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+env/
+.venv/
+.env
+*.sqlite3
+.coverage
+htmlcov/
+
+# Migraciones generadas en tiempo de ejecución (se generan con makemigrations en Docker)
+# Si decides versionar las migraciones, elimina estas líneas
+*/migrations/
+
+# ─── Node / Frontend ──────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.cache/
+.npm/
+
+# ─── Docker ───────────────────────────────────────────
+# No ignorar docker-compose.yml (es parte del proyecto)
+.docker/
+
+# ─── IDE / OS ─────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Secretos ─────────────────────────────────────────
+.env
+.env.*
+!.env.example
+secrets/
+
+# ─── Archivos que SÍ se deben versionar ───────────────
+# (no ignorar — son datos semilla del sistema)
+# backend/fixtures/factores.json
+# backend/fixtures/subfactores.json

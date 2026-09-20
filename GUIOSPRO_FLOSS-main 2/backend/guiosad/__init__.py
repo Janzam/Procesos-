@@ -1,0 +1,1 @@
+# guiosad django package

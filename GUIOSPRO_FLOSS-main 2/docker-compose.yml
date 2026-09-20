@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: guiosad
+      POSTGRES_USER: guiosad
+      POSTGRES_PASSWORD: guiosad
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guiosad"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    command: >
+      sh -c "python manage.py makemigrations factores evaluaciones usuarios &&
+             python manage.py migrate &&
+             python manage.py loaddata fixtures/factores.json &&
+             python manage.py loaddata fixtures/subfactores.json &&
+             gunicorn guiosad.wsgi:application --bind 0.0.0.0:8000"
+    environment:
+      DB_NAME: guiosad
+      DB_USER: guiosad
+      DB_PASSWORD: guiosad
+      DB_HOST: db
+      DB_PORT: 5432
+      DEBUG: "False"
+      SECRET_KEY: "change-me-in-production"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

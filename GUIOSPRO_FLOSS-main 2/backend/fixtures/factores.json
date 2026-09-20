@@ -1,0 +1,24 @@
+[
+  {"model": "factores.dimension", "pk": 1, "fields": {"nombre": "Tecnológica"}},
+  {"model": "factores.dimension", "pk": 2, "fields": {"nombre": "Organizacional"}},
+  {"model": "factores.dimension", "pk": 3, "fields": {"nombre": "Económica"}},
+
+  {"model": "factores.factor", "pk": 1,  "fields": {"nombre": "Compatibilidad",                                   "dimension": 1, "importancia_sugerida": 3, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 2,  "fields": {"nombre": "Personalización",                                  "dimension": 1, "importancia_sugerida": 3, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 3,  "fields": {"nombre": "Prueba",                                           "dimension": 1, "importancia_sugerida": 3, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 4,  "fields": {"nombre": "Fiabilidad",                                       "dimension": 1, "importancia_sugerida": 3, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 5,  "fields": {"nombre": "Reusabilidad",                                     "dimension": 1, "importancia_sugerida": 2, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 6,  "fields": {"nombre": "Usabilidad",                                       "dimension": 1, "importancia_sugerida": 3, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 7,  "fields": {"nombre": "Mantenibilidad",                                   "dimension": 1, "importancia_sugerida": 3, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 8,  "fields": {"nombre": "Portabilidad",                                     "dimension": 1, "importancia_sugerida": 2, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 9,  "fields": {"nombre": "Documentación",                                    "dimension": 1, "importancia_sugerida": 2, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 10, "fields": {"nombre": "Formación",                                        "dimension": 2, "importancia_sugerida": 3, "alcance": "Interno"}},
+  {"model": "factores.factor", "pk": 11, "fields": {"nombre": "Tiempo de adopción",                               "dimension": 2, "importancia_sugerida": 2, "alcance": "Interno"}},
+  {"model": "factores.factor", "pk": 12, "fields": {"nombre": "Casos de estudio de adopción FLOSS",               "dimension": 2, "importancia_sugerida": 2, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 13, "fields": {"nombre": "Centralidad de la tecnología de la información",   "dimension": 2, "importancia_sugerida": 2, "alcance": "Interno"}},
+  {"model": "factores.factor", "pk": 14, "fields": {"nombre": "Apoyo de la alta dirección",                       "dimension": 2, "importancia_sugerida": 2, "alcance": "Interno"}},
+  {"model": "factores.factor", "pk": 15, "fields": {"nombre": "Bloqueo de proveedores",                           "dimension": 2, "importancia_sugerida": 2, "alcance": "Externo"}},
+  {"model": "factores.factor", "pk": 16, "fields": {"nombre": "Soporte",                                          "dimension": 2, "importancia_sugerida": 3, "alcance": "Ambos"}},
+  {"model": "factores.factor", "pk": 17, "fields": {"nombre": "Actitud hacia el cambio",                          "dimension": 2, "importancia_sugerida": 2, "alcance": "Interno"}},
+  {"model": "factores.factor", "pk": 18, "fields": {"nombre": "Coste total de propiedad",                         "dimension": 3, "importancia_sugerida": 3, "alcance": "Interno"}}
+]
