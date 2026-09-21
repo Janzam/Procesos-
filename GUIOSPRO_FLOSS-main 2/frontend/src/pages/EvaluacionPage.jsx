@@ -1,11 +1,12 @@
-// origen: main.py (flujo de 6 pasos completo) | cambio: wizard de 3 etapas en React
+// origen: main.py (flujo 6 pasos) | cambio: wizard con Stepper visual y layout moderno
 import { useState, useEffect } from 'react'
 import { getFactores, crearEvaluacion, calcularIRLocal } from '../api/guiosad.js'
+import Stepper from '../components/Stepper.jsx'
 import StepFactores from '../components/wizard/StepFactores.jsx'
 import StepSubfactores from '../components/wizard/StepSubfactores.jsx'
 import StepResultados from '../components/wizard/StepResultados.jsx'
 
-const PASOS = ['Paso 1-2: Factores', 'Paso 3-4: Subfactores', 'Paso 5-6: Resultado']
+const STEPS = ['Factores', 'Subfactores', 'Resultados']
 
 export default function EvaluacionPage() {
   const [step, setStep] = useState(0)
@@ -21,22 +22,20 @@ export default function EvaluacionPage() {
     getFactores().then(setFactores).catch(() => setError('No se pudo cargar la lista de factores.'))
   }, [])
 
-  async function handleSubmit() {
+  async function handleCalcular() {
     setLoading(true)
     setError(null)
     try {
-      const NIVELES = ['Irrelevante', 'Opcional', 'Importante', 'Fundamental']
-      const factoresPayload = factores.map((f) => {
+      const factoresPayload = factores.map(f => {
         const ev = evFactores[f.id] || { importancia_decisor: 1, alcance_elegido: f.alcance !== 'Ambos' ? f.alcance : 'Interno' }
         const ir = calcularIRLocal(f.importancia_sugerida, ev.importancia_decisor)
-        const subfactoresPayload = ir.relevante
-          ? f.subfactores.map((s) => ({ subfactor_id: s.id, valor: evSubfactores[s.id] || 1 }))
-          : []
         return {
           factor_id: f.id,
           importancia_decisor: ev.importancia_decisor,
           alcance_elegido: f.alcance === 'Ambos' ? ev.alcance_elegido : null,
-          subfactores: subfactoresPayload,
+          subfactores: ir.relevante
+            ? f.subfactores.map(s => ({ subfactor_id: s.id, valor: evSubfactores[s.id] || 1 }))
+            : [],
         }
       })
       const res = await crearEvaluacion({ nombre: nombre || 'Evaluación sin nombre', factores: factoresPayload })
@@ -49,47 +48,60 @@ export default function EvaluacionPage() {
     }
   }
 
-  return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      <h2 style={{ marginBottom: 8 }}>Nueva Evaluación GUIOSAD</h2>
-      <input
-        placeholder="Nombre de la evaluación (ej: Evaluación LibreOffice 2025)"
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
-        style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #ccc', marginBottom: 20, fontSize: 14 }}
-      />
+  const subtitles = [
+    'Ajuste la importancia de cada factor según su organización.',
+    'Evalúe el cumplimiento de los subfactores para cada factor relevante.',
+    'Resultado del análisis FODA y recomendación final.',
+  ]
 
-      {/* Stepper */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 24 }}>
-        {PASOS.map((p, i) => (
-          <div key={i} style={{
-            flex: 1, padding: '10px 0', textAlign: 'center', fontSize: 13, fontWeight: 600,
-            background: i === step ? '#1a1a2e' : i < step ? '#4f8ef7' : '#ddd',
-            color: i <= step ? '#fff' : '#666',
-            borderRadius: i === 0 ? '8px 0 0 8px' : i === PASOS.length - 1 ? '0 8px 8px 0' : 0,
-            cursor: i < step ? 'pointer' : 'default',
-          }} onClick={() => i < step && setStep(i)}>
-            {p}
-          </div>
-        ))}
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="page-title">Nueva Evaluación</h1>
+          <p className="page-subtitle" style={{ marginBottom: 0 }}>{subtitles[step]}</p>
+        </div>
+        <input
+          placeholder="Nombre de la evaluación…"
+          value={nombre}
+          onChange={e => setNombre(e.target.value)}
+          style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)',
+            color: 'var(--text-primary)', borderRadius: 'var(--radius-sm)',
+            padding: '8px 14px', fontSize: 13, outline: 'none', width: 280,
+            fontFamily: 'inherit',
+          }}
+        />
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 10, padding: 24, boxShadow: '0 2px 8px #0001' }}>
-        {error && <p style={{ color: '#e74c3c', marginBottom: 12 }}>{error}</p>}
+      <Stepper steps={STEPS} current={step} />
+
+      {error && <div className="error-msg">{error}</div>}
+
+      <div>
         {step === 0 && <StepFactores factores={factores} evaluacion={evFactores} onChange={setEvFactores} />}
         {step === 1 && <StepSubfactores factores={factores} evaluacionFactores={evFactores} subfactores={evSubfactores} onChange={setEvSubfactores} />}
         {step === 2 && <StepResultados resultado={resultado} />}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
-        {step > 0 && step < 2 && (
-          <button onClick={() => setStep(step - 1)} style={btnSecondary}>← Anterior</button>
-        )}
-        <div style={{ marginLeft: 'auto' }}>
-          {step === 0 && <button onClick={() => setStep(1)} style={btnPrimary}>Siguiente →</button>}
+      <div className="wizard-actions">
+        {step > 0 && step < 2 ? (
+          <button className="btn btn-secondary" onClick={() => setStep(step - 1)}>← Anterior</button>
+        ) : <div />}
+        <div style={{ display: 'flex', gap: 10 }}>
+          {step === 0 && (
+            <button className="btn btn-primary" onClick={() => setStep(1)}>
+              Siguiente: Subfactores →
+            </button>
+          )}
           {step === 1 && (
-            <button onClick={handleSubmit} disabled={loading} style={btnPrimary}>
-              {loading ? 'Calculando...' : 'Calcular resultado →'}
+            <button className="btn btn-primary" disabled={loading} onClick={handleCalcular}>
+              {loading ? 'Calculando…' : 'Ver Resultados →'}
+            </button>
+          )}
+          {step === 2 && (
+            <button className="btn btn-secondary" onClick={() => { setStep(0); setResultado(null) }}>
+              Nueva evaluación
             </button>
           )}
         </div>
@@ -97,6 +109,3 @@ export default function EvaluacionPage() {
     </div>
   )
 }
-
-const btnPrimary = { background: '#1a1a2e', color: '#fff', border: 'none', padding: '10px 22px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }
-const btnSecondary = { background: '#eee', color: '#333', border: 'none', padding: '10px 22px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }

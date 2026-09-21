@@ -1,85 +1,107 @@
-// origen: main.py (Tab 2, btn_sub_pressed, evaluación de subfactores) | cambio: ninguno en lógica, UI migrada a React
+// origen: main.py (Tab 2) | cambio: selector elegante + barra de progreso + sliders custom
 import { useState } from 'react'
 import { calcularIRLocal } from '../../api/guiosad.js'
 
 const NIVELES_SUB = ['No cumple el requisito', 'Desconozco si cumple', 'Cumple parcialmente', 'Cumple el requisito']
+const SUB_COLORS  = ['#7f1d1d','#78350f','#1e3a5f','#064e3b']
+const SUB_TEXT    = ['#fca5a5','#fcd34d','#60a5fa','#34d399']
+
+function sliderPct(val) { return Math.round(((val - 1) / 3) * 100) + '%' }
 
 export default function StepSubfactores({ factores, evaluacionFactores, subfactores, onChange }) {
-  const NIVELES = ['Irrelevante', 'Opcional', 'Importante', 'Fundamental']
-
-  const factoresRelevantes = factores.filter((f) => {
+  const relevantes = factores.filter(f => {
     const ev = evaluacionFactores[f.id]
     if (!ev) return false
-    const ir = calcularIRLocal(f.importancia_sugerida, ev.importancia_decisor)
-    return ir.relevante
+    return calcularIRLocal(f.importancia_sugerida, ev.importancia_decisor).relevante
   })
 
-  const [factorSeleccionado, setFactorSeleccionado] = useState(factoresRelevantes[0]?.id || null)
+  const [selId, setSelId] = useState(relevantes[0]?.id || null)
+  const factor = factores.find(f => f.id === selId)
 
-  function handleSubfactor(subfactorId, value) {
-    onChange({ ...subfactores, [subfactorId]: value })
+  // progreso: cuántos subfactores de este factor ya tienen valor > 1
+  const evaluados = factor
+    ? factor.subfactores.filter(s => (subfactores[s.id] || 1) > 1).length
+    : 0
+  const total = factor?.subfactores.length || 0
+  const pct   = total ? Math.round((evaluados / total) * 100) : 0
+
+  function handleSub(id, val) { onChange({ ...subfactores, [id]: val }) }
+
+  if (relevantes.length === 0) {
+    return (
+      <div className="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+        </svg>
+        <p>No hay factores relevantes. Vuelve al Paso 1 y sube la evaluación de algún factor.</p>
+      </div>
+    )
   }
-
-  const factor = factores.find((f) => f.id === factorSeleccionado)
 
   return (
     <div>
-      <p style={{ marginBottom: 16, color: '#555' }}>
-        Evalúe el cumplimiento de cada subfactor para los factores que resultaron relevantes.
-      </p>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <label style={{ fontWeight: 600 }}>Factor:</label>
+      <div className="factor-selector">
+        <label>Factor a evaluar:</label>
         <select
-          value={factorSeleccionado || ''}
-          onChange={(e) => setFactorSeleccionado(Number(e.target.value))}
-          style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #ccc', minWidth: 240 }}
+          className="factor-select-input"
+          value={selId || ''}
+          onChange={e => setSelId(Number(e.target.value))}
         >
-          {factoresRelevantes.map((f) => (
+          {relevantes.map(f => (
             <option key={f.id} value={f.id}>{f.nombre}</option>
           ))}
         </select>
+        <span className="badge badge-gray">{relevantes.length} factores relevantes</span>
       </div>
 
       {factor && (
-        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: '#1a1a2e', color: '#fff' }}>
-                <th style={th}>Subfactor</th>
-                <th style={{ ...th, width: 160 }}>Evaluación</th>
-                <th style={{ ...th, width: 220 }}>Resultado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {factor.subfactores.map((s) => {
-                const val = subfactores[s.id] || 1
-                return (
-                  <tr key={s.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={td}>{s.nombre}</td>
-                    <td style={{ ...td, textAlign: 'center' }}>
+        <div className="card">
+          <div className="card-header dim-teal">
+            <div className="card-header-badge">{selId}</div>
+            <span className="card-header-title">{factor.nombre}</span>
+          </div>
+          <div className="card-body" style={{ padding: '12px 16px' }}>
+            <div className="progress-bar-wrap">
+              <div className="progress-label">
+                <span>Progreso de evaluación</span>
+                <span>{evaluados}/{total} subfactores</span>
+              </div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: pct + '%' }} />
+              </div>
+            </div>
+            {factor.subfactores.map((s, idx) => {
+              const val = subfactores[s.id] || 1
+              return (
+                <div className="factor-row" key={s.id}>
+                  <div className="factor-name">
+                    <strong style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 6 }}>
+                      {String(idx + 1).padStart(2, '0')}
+                    </strong>
+                    <strong>{s.nombre}</strong>
+                  </div>
+                  <div className="factor-controls">
+                    <div className="slider-wrap">
                       <input
-                        type="range" min={1} max={4} step={1} value={val}
-                        onChange={(e) => handleSubfactor(s.id, Number(e.target.value))}
-                        style={{ width: 100 }}
+                        type="range" min={1} max={4} step={1}
+                        value={val}
+                        style={{ '--pct': sliderPct(val), width: 90 }}
+                        onChange={e => handleSub(s.id, Number(e.target.value))}
                       />
-                    </td>
-                    <td style={{ ...td, fontSize: 12, color: '#444' }}>{NIVELES_SUB[val - 1]}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    </div>
+                    <span className="badge" style={{
+                      background: SUB_COLORS[val - 1], color: SUB_TEXT[val - 1],
+                      minWidth: 140, justifyContent: 'center', fontSize: 11
+                    }}>
+                      {NIVELES_SUB[val - 1]}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
-      )}
-
-      {factoresRelevantes.length === 0 && (
-        <p style={{ color: '#e74c3c', marginTop: 12 }}>
-          No hay factores relevantes. Regrese al Paso 1 y aumente la evaluación de algún factor.
-        </p>
       )}
     </div>
   )
 }
-
-const th = { padding: '10px 12px', textAlign: 'left', fontWeight: 600 }
-const td = { padding: '8px 12px' }

@@ -1,77 +1,110 @@
-// origen: main.py (Tab 3, compute_recommendation, clasificar_foda) | cambio: ninguno en lógica, UI migrada a React
+// origen: main.py (Tab 3) | cambio: banner de recomendación + tabla FODA moderna + mini-barras
 import FodaFlower from '../FodaFlower.jsx'
 import RadarDimensiones from '../RadarDimensiones.jsx'
 
-const COLOR_MAP = { good: '#2ecc71', bad: '#e74c3c', neutro: '#f0c040' }
-const BG_MAP = { good: '#d5f5e3', bad: '#fde8e8', neutro: '#fef9e7' }
+const FODA_CLASS = {
+  Fortaleza:   'badge-foda-fortaleza',
+  Oportunidad: 'badge-foda-oportunidad',
+  Debilidad:   'badge-foda-debilidad',
+  Amenaza:     'badge-foda-amenaza',
+}
+const REC_LABEL = { A: 'Adoptar el software', B: 'Adoptar con reservas', C: 'No adoptar todavía' }
+const REC_CLASS = { A: 'rec-banner-a', B: 'rec-banner-b', C: 'rec-banner-c' }
+const REC_BADGE = { A: 'rec-badge-a', B: 'rec-badge-b', C: 'rec-badge-c' }
 
-export default function StepResultados({ resultado }) {
-  if (!resultado) return <p>Calculando resultado...</p>
-
-  const { factores, recomendacion } = resultado
-
+function MiniBar({ val, max = 4 }) {
+  const pct = Math.round((val / max) * 100)
+  const good = val >= 2.5
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        <FodaFlower factores={factores} />
-        <RadarDimensiones factores={factores} />
-      </div>
-
-      <div>
-        <h3 style={{ marginBottom: 12 }}>Clasificación FODA por factor</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: '#1a1a2e', color: '#fff' }}>
-                <th style={th}>Factor</th>
-                <th style={th}>Dimensión</th>
-                <th style={th}>Imp. Relativa</th>
-                <th style={th}>Ponderación</th>
-                <th style={th}>Alcance</th>
-                <th style={th}>FODA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {factores.map((f) => (
-                <tr key={f.factor_id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={td}>{f.factor_nombre}</td>
-                  <td style={td}>{f.dimension}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{f.ir_etiqueta}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>
-                    {f.ponderacion_global !== null ? f.ponderacion_global.toFixed(2) : '—'}
-                  </td>
-                  <td style={{ ...td, textAlign: 'center' }}>{f.alcance || '—'}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>
-                    {f.foda_categoria ? (
-                      <span style={{
-                        background: COLOR_MAP[f.foda_color] || '#ccc',
-                        color: '#fff', padding: '2px 10px', borderRadius: 12,
-                        fontWeight: 600, fontSize: 12,
-                      }}>
-                        {f.foda_categoria}
-                      </span>
-                    ) : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div style={{
-        background: BG_MAP[recomendacion.color] || '#f5f5f5',
-        border: `2px solid ${COLOR_MAP[recomendacion.color] || '#ccc'}`,
-        borderRadius: 10, padding: 20,
-      }}>
-        <h3 style={{ color: COLOR_MAP[recomendacion.color], marginBottom: 8 }}>
-          {recomendacion.codigo ? `Recomendación ${recomendacion.codigo}` : 'Sin datos suficientes'}
-        </h3>
-        <p style={{ lineHeight: 1.6 }}>{recomendacion.texto}</p>
+    <div className="mini-bar-wrap">
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 30 }}>{val.toFixed(2)}</span>
+      <div className="mini-bar-track">
+        <div className={`mini-bar-fill ${good ? 'mini-bar-good' : 'mini-bar-bad'}`} style={{ width: pct + '%' }} />
       </div>
     </div>
   )
 }
 
-const th = { padding: '10px 12px', textAlign: 'left', fontWeight: 600 }
-const td = { padding: '8px 12px' }
+export default function StepResultados({ resultado }) {
+  if (!resultado) return <p style={{ color: 'var(--text-muted)' }}>Calculando resultado...</p>
+  const { factores, recomendacion } = resultado
+  const cod = recomendacion.codigo
+
+  return (
+    <div>
+      {/* Banner de recomendación */}
+      <div className={`rec-banner ${REC_CLASS[cod] || ''}`}>
+        <div className={`rec-badge-circle ${REC_BADGE[cod] || ''}`}>{cod || '?'}</div>
+        <div>
+          <div className="rec-title">
+            Recomendación {cod} — {REC_LABEL[cod] || 'Resultado'}
+          </div>
+          <div className="rec-text">{recomendacion.texto}</div>
+        </div>
+      </div>
+
+      {/* Grid resultados */}
+      <div className="results-grid">
+        {/* Tabla FODA */}
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <div className="card-header" style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid var(--border-glass)' }}>
+            <span className="card-header-title">Clasificación FODA por factor</span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="foda-table">
+              <thead>
+                <tr>
+                  <th>Factor</th>
+                  <th>Dimensión</th>
+                  <th>Imp. Relativa</th>
+                  <th>Ponderación</th>
+                  <th>FODA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {factores.map(f => (
+                  <tr key={f.factor_id}>
+                    <td style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: 12.5 }}>{f.factor_nombre}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{f.dimension}</td>
+                    <td>
+                      <span className={`badge badge-ir-${f.ir_etiqueta?.toLowerCase() || 'irrelevante'}`}>
+                        {f.ir_etiqueta || '—'}
+                      </span>
+                    </td>
+                    <td>
+                      {f.ponderacion_global !== null
+                        ? <MiniBar val={f.ponderacion_global} />
+                        : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>}
+                    </td>
+                    <td>
+                      {f.foda_categoria
+                        ? <span className={`badge ${FODA_CLASS[f.foda_categoria] || ''}`}>{f.foda_categoria}</span>
+                        : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Visualizaciones */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <FodaFlower factores={factores} />
+          <RadarDimensiones factores={factores} />
+        </div>
+      </div>
+
+      <div className="results-footer">
+        <button className="btn btn-outline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          Exportar PDF
+        </button>
+        <button className="btn btn-outline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Exportar Excel
+        </button>
+      </div>
+    </div>
+  )
+}
