@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* ── Variables ─────────────────────────────────────────── */
+/* ── Dark mode variables (default) ─────────────────────── */
 :root {
   --bg-primary:    #0f172a;
   --bg-secondary:  #1e293b;
@@ -25,6 +25,50 @@
   --shadow:        0 4px 24px rgba(0,0,0,0.4);
 }
 
+/* ── Light mode overrides ───────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary:    #f8fafc;
+  --bg-secondary:  #f1f5f9;
+  --bg-card:       #ffffff;
+  --bg-hover:      rgba(0,0,0,0.04);
+  --border-glass:  rgba(0,0,0,0.08);
+  --text-primary:  #0f172a;
+  --text-secondary:#475569;
+  --text-muted:    #94a3b8;
+  --teal-glow:     rgba(20,184,166,0.15);
+}
+[data-theme="light"] body {
+  background-image: radial-gradient(rgba(0,0,0,0.05) 1px, transparent 1px);
+}
+[data-theme="light"] .sidebar {
+  background: #ffffff;
+  border-right: 1px solid rgba(0,0,0,0.08);
+}
+[data-theme="light"] .topbar {
+  background: rgba(248,250,252,0.9);
+}
+[data-theme="light"] .card {
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+[data-theme="light"] .foda-table td,
+[data-theme="light"] .factor-row { border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] input[type=range] {
+  background: linear-gradient(to right, var(--teal) 0%, var(--teal) var(--pct,33%), #cbd5e1 var(--pct,33%), #cbd5e1 100%);
+}
+[data-theme="light"] .factor-select-input,
+[data-theme="light"] .alcance-select {
+  background: #f8fafc;
+  border-color: rgba(0,0,0,0.12);
+  color: #0f172a;
+}
+[data-theme="light"] .factor-select-input option,
+[data-theme="light"] .alcance-select option { background: #fff; color: #0f172a; }
+[data-theme="light"] .sidebar-item { color: #475569; }
+[data-theme="light"] .sidebar-item:hover { background: rgba(20,184,166,0.08); color: #0f172a; }
+[data-theme="light"] .sidebar-logo-text { color: #0f172a; }
+[data-theme="light"] .historial-item:hover { background: rgba(0,0,0,0.04); }
+
 /* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -33,9 +77,9 @@ body {
   background: var(--bg-secondary);
   color: var(--text-primary);
   min-height: 100vh;
-  /* dot grid background */
   background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
   background-size: 24px 24px;
+  transition: background 0.3s, color 0.3s;
 }
 
 /* ── Layout shell ───────────────────────────────────────── */
@@ -166,15 +210,16 @@ body {
 
 /* ── Factor rows ─────────────────────────────────────────── */
 .factor-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 16px; transition: background 0.15s;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 14px; transition: background 0.15s;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .factor-row:last-child { border-bottom: none; }
 .factor-row:hover { background: var(--bg-hover); }
-.factor-name { flex: 1; font-size: 12.5px; color: var(--text-secondary); min-width: 0; }
-.factor-name strong { color: var(--text-primary); font-weight: 500; display: block; }
-.factor-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.factor-row-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.factor-row-bottom { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.factor-name { font-size: 12.5px; color: var(--text-primary); font-weight: 500; flex: 1; min-width: 0; }
+.factor-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
 
 /* ── Range slider ────────────────────────────────────────── */
 .slider-wrap { display: flex; align-items: center; gap: 6px; }
@@ -218,9 +263,10 @@ input[type=range]::-moz-range-thumb {
 .alcance-select {
   background: rgba(255,255,255,0.07); border: 1px solid var(--border-glass);
   color: var(--text-primary); font-size: 11px; border-radius: var(--radius-sm);
-  padding: 2px 6px; cursor: pointer; outline: none;
+  padding: 2px 6px; cursor: pointer; outline: none; font-family: inherit;
 }
 .alcance-select:focus { border-color: var(--teal); }
+.alcance-select option { background: #1e293b; color: #f1f5f9; }
 
 /* ── Buttons ─────────────────────────────────────────────── */
 .btn {
