@@ -3,8 +3,7 @@ import { useState } from 'react'
 import { calcularIRLocal } from '../../api/guiosad.js'
 
 const NIVELES_SUB = ['No cumple el requisito', 'Desconozco si cumple', 'Cumple parcialmente', 'Cumple el requisito']
-const SUB_COLORS  = ['#7f1d1d','#78350f','#1e3a5f','#064e3b']
-const SUB_TEXT    = ['#fca5a5','#fcd34d','#60a5fa','#34d399']
+// colores por nivel definidos en index.css (.badge-sub-1..4) con variante clara/oscura
 
 function sliderPct(val) { return Math.round(((val - 1) / 3) * 100) + '%' }
 
@@ -89,8 +88,7 @@ export default function StepSubfactores({ factores, evaluacionFactores, subfacto
                         onChange={e => handleSub(s.id, Number(e.target.value))}
                       />
                     </div>
-                    <span className="badge" style={{
-                      background: SUB_COLORS[val - 1], color: SUB_TEXT[val - 1],
+                    <span className={`badge badge-sub-${val}`} style={{
                       minWidth: 140, justifyContent: 'center', fontSize: 11
                     }}>
                       {NIVELES_SUB[val - 1]}

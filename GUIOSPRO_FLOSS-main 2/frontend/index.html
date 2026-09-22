@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GUIOSAD v2</title>
+    <!-- Aplica el tema guardado antes del primer render para evitar parpadeo al recargar -->
+    <script>
+      try {
+        var t = localStorage.getItem('guiosad-theme');
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

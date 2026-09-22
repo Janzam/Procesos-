@@ -12,8 +12,13 @@ from recomendaciones.services import calcular_resultado_evaluacion
 class EvaluacionListCreateView(APIView):
     def get(self, request):
         evaluaciones = Evaluacion.objects.all()
-        serializer = EvaluacionListSerializer(evaluaciones, many=True)
-        return Response(serializer.data)
+        data = EvaluacionListSerializer(evaluaciones, many=True).data
+        # Código de recomendación para mostrarlo en la lista del historial
+        por_id = {ev.id: ev for ev in evaluaciones}
+        for item in data:
+            resultado = calcular_resultado_evaluacion(por_id[item['id']])
+            item['recomendacion_codigo'] = resultado['recomendacion']['codigo'] or None
+        return Response(data)
 
     def post(self, request):
         serializer = EvaluacionCreateSerializer(data=request.data)
@@ -41,6 +46,75 @@ class EvaluacionListCreateView(APIView):
 
         resultado = calcular_resultado_evaluacion(evaluacion)
         return Response({"id": evaluacion.id, "resultado": resultado}, status=status.HTTP_201_CREATED)
+
+
+class DashboardView(APIView):
+    """
+    origen: nuevo | métricas agregadas de todas las evaluaciones para el panel Dashboard.
+    """
+    def get(self, request):
+        evaluaciones = list(Evaluacion.objects.all())
+        total = len(evaluaciones)
+
+        recomendaciones = {"A": 0, "B": 0, "C": 0}
+        foda = {"Fortaleza": 0, "Oportunidad": 0, "Debilidad": 0, "Amenaza": 0}
+        dimensiones = {}          # nombre -> [suma, n]
+        frecuencia_problemas = {} # factor -> {nombre, dimension, veces}
+        relevantes_total = 0
+        ponderaciones = []
+        recientes = []
+        por_dia = {}
+
+        for ev in evaluaciones:
+            res = calcular_resultado_evaluacion(ev)
+            cod = res["recomendacion"]["codigo"]
+            if cod in recomendaciones:
+                recomendaciones[cod] += 1
+
+            dia = ev.creado_en.date().isoformat()
+            por_dia[dia] = por_dia.get(dia, 0) + 1
+
+            for f in res["factores"]:
+                if f["relevante"]:
+                    relevantes_total += 1
+                p = f["ponderacion_global"]
+                if p is not None:
+                    ponderaciones.append(p)
+                    acc = dimensiones.setdefault(f["dimension"], [0.0, 0])
+                    acc[0] += p
+                    acc[1] += 1
+                cat = f["foda_categoria"]
+                if cat in foda:
+                    foda[cat] += 1
+                if cat in ("Debilidad", "Amenaza"):
+                    item = frecuencia_problemas.setdefault(
+                        f["factor_id"], {"factor_id": f["factor_id"], "factor_nombre": f["factor_nombre"],
+                                         "dimension": f["dimension"], "veces": 0})
+                    item["veces"] += 1
+
+            if len(recientes) < 6:
+                recientes.append({
+                    "id": ev.id, "nombre": ev.nombre, "creado_en": ev.creado_en,
+                    "recomendacion_codigo": cod or None,
+                    "relevantes": sum(1 for f in res["factores"] if f["relevante"]),
+                })
+
+        problemas_frecuentes = sorted(frecuencia_problemas.values(), key=lambda x: -x["veces"])[:8]
+
+        return Response({
+            "total_evaluaciones": total,
+            "recomendaciones": recomendaciones,
+            "foda": foda,
+            "factores_relevantes_promedio": round(relevantes_total / total, 1) if total else 0,
+            "ponderacion_promedio": round(sum(ponderaciones) / len(ponderaciones), 2) if ponderaciones else None,
+            "ponderacion_por_dimension": [
+                {"dimension": d, "ponderacion": round(s / n, 2), "n": n}
+                for d, (s, n) in dimensiones.items()
+            ],
+            "problemas_frecuentes": problemas_frecuentes,
+            "evaluaciones_por_dia": [{"dia": d, "total": n} for d, n in sorted(por_dia.items())],
+            "recientes": recientes,
+        })
 
 
 class EvaluacionDetailView(APIView):

@@ -13,16 +13,17 @@ export default function RadarDimensiones({ factores }) {
   return (
     <div className="card" style={{ padding: '14px 16px' }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--text-primary)' }}>Radar por Dimensión</div>
-      <ResponsiveContainer width="100%" height={220}>
-        <RadarChart data={data} style={{ fontFamily: 'Inter, sans-serif' }}>
-          <PolarGrid stroke="rgba(255,255,255,0.08)" />
-          <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-          <PolarRadiusAxis angle={90} domain={[0, 4]} tick={{ fontSize: 9, fill: '#475569' }} />
-          <Radar dataKey="ponderacion" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.25}
-            dot={{ fill: '#14b8a6', r: 3 }} />
+      <ResponsiveContainer width="100%" height={320}>
+        <RadarChart data={data} outerRadius="78%" style={{ fontFamily: 'Inter, sans-serif' }}>
+          <PolarGrid stroke="var(--chart-grid)" />
+          <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 500 }} />
+          <PolarRadiusAxis angle={90} domain={[0, 4]} tickCount={5} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+          <Radar dataKey="ponderacion" stroke="var(--teal)" strokeWidth={2} fill="var(--teal)" fillOpacity={0.3}
+            dot={{ fill: 'var(--teal)', r: 4, strokeWidth: 0 }} />
           <Tooltip
-            contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }}
-            itemStyle={{ color: '#f1f5f9' }}
+            contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: 8, fontSize: 12, color: 'var(--text-primary)' }}
+            itemStyle={{ color: 'var(--text-primary)' }}
+            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
             formatter={v => [`${v} / 4`, 'Ponderación media']}
           />
         </RadarChart>

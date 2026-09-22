@@ -2,25 +2,76 @@
 import { useState, useEffect } from 'react'
 import { getFactores, crearEvaluacion, calcularIRLocal } from '../api/guiosad.js'
 import Stepper from '../components/Stepper.jsx'
+import StepSoftware, { SOFTWARE_VACIO } from '../components/wizard/StepSoftware.jsx'
 import StepFactores from '../components/wizard/StepFactores.jsx'
 import StepSubfactores from '../components/wizard/StepSubfactores.jsx'
 import StepResultados from '../components/wizard/StepResultados.jsx'
 
-const STEPS = ['Factores', 'Subfactores', 'Resultados']
+const STEPS = ['Software', 'Factores', 'Subfactores', 'Resultados']
+
+// Nombre de la evaluación a partir de los datos del software (todos opcionales)
+function nombreEvaluacion(sw) {
+  const base = [sw.nombre, sw.version].filter(Boolean).join(' ').trim()
+  if (!base) return 'Evaluación sin nombre'
+  return sw.organizacion ? `${base} — ${sw.organizacion}` : base
+}
+
+// Estado del wizard persistido en localStorage: al recargar la página se
+// continúa donde se estaba; solo se borra con "Nueva evaluación".
+const STORAGE_KEY = 'guiosad-evaluacion'
+
+function leerEstadoGuardado() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const s = JSON.parse(raw)
+    // Si se guardó en Resultados pero sin resultado, volver a Subfactores
+    if (s.step === 3 && !s.resultado) s.step = 2
+    return s
+  } catch {
+    return null
+  }
+}
 
 export default function EvaluacionPage() {
-  const [step, setStep] = useState(0)
+  const [guardado] = useState(leerEstadoGuardado)
+  const [step, setStep] = useState(guardado?.step ?? 0)
   const [factores, setFactores] = useState([])
-  const [nombre, setNombre] = useState('')
-  const [evFactores, setEvFactores] = useState({})
-  const [evSubfactores, setEvSubfactores] = useState({})
-  const [resultado, setResultado] = useState(null)
+  const [software, setSoftware] = useState(guardado?.software ?? SOFTWARE_VACIO)
+  const [evFactores, setEvFactores] = useState(guardado?.evFactores ?? {})
+  const [evSubfactores, setEvSubfactores] = useState(guardado?.evSubfactores ?? {})
+  const [resultado, setResultado] = useState(guardado?.resultado ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    getFactores().then(setFactores).catch(() => setError('No se pudo cargar la lista de factores.'))
-  }, [])
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, software, evFactores, evSubfactores, resultado }))
+    } catch { /* modo privado o sin espacio */ }
+  }, [step, software, evFactores, evSubfactores, resultado])
+
+  const [cargandoFactores, setCargandoFactores] = useState(true)
+
+  // Carga los factores con reintentos: en Docker el backend tarda unos segundos
+  // en arrancar (migraciones + fixtures) y el primer fetch puede fallar.
+  async function cargarFactores(intentos = 5) {
+    setCargandoFactores(true)
+    setError(null)
+    for (let i = 0; i < intentos; i++) {
+      try {
+        const data = await getFactores()
+        setFactores(data)
+        setCargandoFactores(false)
+        return
+      } catch {
+        if (i < intentos - 1) await new Promise(r => setTimeout(r, 2000))
+      }
+    }
+    setCargandoFactores(false)
+    setError('No se pudo cargar la lista de factores. Verifique que el backend esté en ejecución.')
+  }
+
+  useEffect(() => { cargarFactores() }, [])
 
   async function handleCalcular() {
     setLoading(true)
@@ -38,9 +89,9 @@ export default function EvaluacionPage() {
             : [],
         }
       })
-      const res = await crearEvaluacion({ nombre: nombre || 'Evaluación sin nombre', factores: factoresPayload })
+      const res = await crearEvaluacion({ nombre: nombreEvaluacion(software), factores: factoresPayload })
       setResultado(res.resultado)
-      setStep(2)
+      setStep(3)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -48,64 +99,88 @@ export default function EvaluacionPage() {
     }
   }
 
+  function handleNuevaEvaluacion() {
+    try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignorar */ }
+    setStep(0)
+    setSoftware(SOFTWARE_VACIO)
+    setEvFactores({})
+    setEvSubfactores({})
+    setResultado(null)
+  }
+
   const subtitles = [
+    'Indique el software que desea evaluar. Todos los campos son opcionales.',
     'Ajuste la importancia de cada factor según su organización.',
     'Evalúe el cumplimiento de los subfactores para cada factor relevante.',
     'Resultado del análisis FODA y recomendación final.',
   ]
 
+  const titulo = step > 0 && software.nombre
+    ? `Evaluación: ${[software.nombre, software.version].filter(Boolean).join(' ')}`
+    : 'Nueva Evaluación'
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 className="page-title">Nueva Evaluación</h1>
-          <p className="page-subtitle" style={{ marginBottom: 0 }}>{subtitles[step]}</p>
-        </div>
-        <input
-          placeholder="Nombre de la evaluación…"
-          value={nombre}
-          onChange={e => setNombre(e.target.value)}
-          style={{
-            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)',
-            color: 'var(--text-primary)', borderRadius: 'var(--radius-sm)',
-            padding: '8px 14px', fontSize: 13, outline: 'none', width: 280,
-            fontFamily: 'inherit',
-          }}
-        />
+      <div style={{ marginBottom: 20 }}>
+        <h1 className="page-title">{titulo}</h1>
+        <p className="page-subtitle" style={{ marginBottom: 0 }}>{subtitles[step]}</p>
       </div>
 
       <Stepper steps={STEPS} current={step} />
 
-      {error && <div className="error-msg">{error}</div>}
-
-      <div>
-        {step === 0 && <StepFactores factores={factores} evaluacion={evFactores} onChange={setEvFactores} />}
-        {step === 1 && <StepSubfactores factores={factores} evaluacionFactores={evFactores} subfactores={evSubfactores} onChange={setEvSubfactores} />}
-        {step === 2 && <StepResultados resultado={resultado} />}
-      </div>
-
-      <div className="wizard-actions">
-        {step > 0 && step < 2 ? (
-          <button className="btn btn-secondary" onClick={() => setStep(step - 1)}>← Anterior</button>
-        ) : <div />}
-        <div style={{ display: 'flex', gap: 10 }}>
-          {step === 0 && (
-            <button className="btn btn-primary" onClick={() => setStep(1)}>
-              Siguiente: Subfactores →
-            </button>
-          )}
-          {step === 1 && (
-            <button className="btn btn-primary" disabled={loading} onClick={handleCalcular}>
-              {loading ? 'Calculando…' : 'Ver Resultados →'}
-            </button>
-          )}
-          {step === 2 && (
-            <button className="btn btn-secondary" onClick={() => { setStep(0); setResultado(null) }}>
-              Nueva evaluación
+      {error && (
+        <div className="error-msg" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span>{error}</span>
+          {factores.length === 0 && !cargandoFactores && (
+            <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => cargarFactores()}>
+              Reintentar
             </button>
           )}
         </div>
+      )}
+
+      <div>
+        {step === 0 && <StepSoftware software={software} onChange={setSoftware} onStart={() => setStep(1)} />}
+        {(step === 1 || step === 2) && cargandoFactores && (
+          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando factores…</p>
+        )}
+        {step === 1 && !cargandoFactores && <StepFactores factores={factores} evaluacion={evFactores} onChange={setEvFactores} />}
+        {step === 2 && !cargandoFactores && <StepSubfactores factores={factores} evaluacionFactores={evFactores} subfactores={evSubfactores} onChange={setEvSubfactores} />}
+        {step === 3 && <StepResultados resultado={resultado} nombre={nombreEvaluacion(software)} />}
       </div>
+
+      {step > 0 && (
+        <div className="wizard-actions">
+          {step < 3 ? (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-secondary" onClick={() => setStep(step - 1)}>← Anterior</button>
+              <button
+                className="btn btn-outline"
+                onClick={() => { if (window.confirm('¿Descartar esta evaluación y empezar con otro sistema?')) handleNuevaEvaluacion() }}
+              >
+                Evaluar otro sistema
+              </button>
+            </div>
+          ) : <div />}
+          <div style={{ display: 'flex', gap: 10 }}>
+            {step === 1 && (
+              <button className="btn btn-primary" disabled={factores.length === 0} onClick={() => setStep(2)}>
+                Siguiente: Subfactores →
+              </button>
+            )}
+            {step === 2 && (
+              <button className="btn btn-primary" disabled={loading} onClick={handleCalcular}>
+                {loading ? 'Calculando…' : 'Ver Resultados →'}
+              </button>
+            )}
+            {step === 3 && (
+              <button className="btn btn-secondary" onClick={handleNuevaEvaluacion}>
+                Nueva evaluación
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

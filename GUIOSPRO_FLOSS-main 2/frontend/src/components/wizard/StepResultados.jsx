@@ -1,6 +1,20 @@
 // origen: main.py (Tab 3) | cambio: banner de recomendación + tabla FODA moderna + mini-barras
+import { useState, useEffect } from 'react'
 import FodaFlower from '../FodaFlower.jsx'
 import RadarDimensiones from '../RadarDimensiones.jsx'
+
+// Las librerías de exportación (jsPDF, SheetJS) se cargan bajo demanda al pulsar el botón
+async function exportar(tipo, nombre, resultado) {
+  const mod = await import('../../utils/exportar.js')
+  if (tipo === 'pdf') mod.exportarPDF(nombre, resultado)
+  else mod.exportarExcel(nombre, resultado)
+}
+
+// Preferencia de mostrar/ocultar el panel de gráficos (se recuerda entre sesiones)
+const GRAFICOS_KEY = 'guiosad-mostrar-graficos'
+function leerMostrarGraficos() {
+  try { return localStorage.getItem(GRAFICOS_KEY) !== 'no' } catch { return true }
+}
 
 const FODA_CLASS = {
   Fortaleza:   'badge-foda-fortaleza',
@@ -25,7 +39,12 @@ function MiniBar({ val, max = 4 }) {
   )
 }
 
-export default function StepResultados({ resultado }) {
+export default function StepResultados({ resultado, nombre }) {
+  const [mostrarGraficos, setMostrarGraficos] = useState(leerMostrarGraficos)
+  useEffect(() => {
+    try { localStorage.setItem(GRAFICOS_KEY, mostrarGraficos ? 'si' : 'no') } catch { /* ignorar */ }
+  }, [mostrarGraficos])
+
   if (!resultado) return <p style={{ color: 'var(--text-muted)' }}>Calculando resultado...</p>
   const { factores, recomendacion } = resultado
   const cod = recomendacion.codigo
@@ -44,11 +63,23 @@ export default function StepResultados({ resultado }) {
       </div>
 
       {/* Grid resultados */}
-      <div className="results-grid">
+      <div className={`results-grid${mostrarGraficos ? '' : ' results-grid-solo-tabla'}`}>
         {/* Tabla FODA */}
         <div className="card" style={{ overflow: 'hidden' }}>
-          <div className="card-header" style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid var(--border-glass)' }}>
-            <span className="card-header-title">Clasificación FODA por factor</span>
+          <div className="card-header" style={{ background: 'var(--bg-hover)', borderBottom: '1px solid var(--border-glass)', justifyContent: 'space-between' }}>
+            <span className="card-header-title" style={{ color: 'var(--text-primary)' }}>Clasificación FODA por factor</span>
+            <button
+              className="btn btn-outline btn-xs"
+              onClick={() => setMostrarGraficos(v => !v)}
+              title={mostrarGraficos ? 'Ocultar el panel de gráficos para ver la tabla completa' : 'Mostrar diagrama FODA y radar'}
+            >
+              {mostrarGraficos ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              )}
+              {mostrarGraficos ? 'Ocultar gráficos' : 'Mostrar gráficos'}
+            </button>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="foda-table">
@@ -89,18 +120,20 @@ export default function StepResultados({ resultado }) {
         </div>
 
         {/* Visualizaciones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <FodaFlower factores={factores} />
-          <RadarDimensiones factores={factores} />
-        </div>
+        {mostrarGraficos && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <FodaFlower factores={factores} />
+            <RadarDimensiones factores={factores} />
+          </div>
+        )}
       </div>
 
       <div className="results-footer">
-        <button className="btn btn-outline">
+        <button className="btn btn-outline" onClick={() => exportar('pdf', nombre, resultado)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
           Exportar PDF
         </button>
-        <button className="btn btn-outline">
+        <button className="btn btn-outline" onClick={() => exportar('excel', nombre, resultado)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
           Exportar Excel
         </button>

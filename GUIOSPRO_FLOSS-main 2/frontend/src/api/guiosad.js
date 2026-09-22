@@ -24,6 +24,12 @@ export async function getHistorial() {
   return res.json()
 }
 
+export async function getDashboard() {
+  const res = await fetch(`${BASE}/evaluaciones/dashboard/`)
+  if (!res.ok) throw new Error('Error al cargar el dashboard')
+  return res.json()
+}
+
 export async function getEvaluacion(id) {
   const res = await fetch(`${BASE}/evaluaciones/${id}/`)
   if (!res.ok) throw new Error('Error al cargar evaluación')

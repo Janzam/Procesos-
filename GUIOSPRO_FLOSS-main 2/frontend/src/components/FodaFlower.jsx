@@ -1,17 +1,16 @@
-// origen: nuevo | cambio: cuadrante FODA 2x2 con listas de factores por categoría
-const FODA_CATS = ['Fortaleza', 'Oportunidad', 'Debilidad', 'Amenaza']
-const FODA_CONFIG = {
-  Fortaleza:   { color: '#10b981', bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)',  icon: '💪', label: 'Fortalezas' },
-  Oportunidad: { color: '#60a5fa', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.25)',  icon: '🚀', label: 'Oportunidades' },
-  Debilidad:   { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.25)',   icon: '⚠️', label: 'Debilidades' },
-  Amenaza:     { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.25)',  icon: '🛡️', label: 'Amenazas' },
-}
+// origen: nuevo | cambio: diagrama FODA tipo "flor" de 4 pétalos (F D / O A) con los factores evaluados
+const PETALOS = [
+  { cat: 'Fortaleza',   label: 'Fortalezas',    cls: 'foda-petal-f' },
+  { cat: 'Debilidad',   label: 'Debilidades',   cls: 'foda-petal-d' },
+  { cat: 'Oportunidad', label: 'Oportunidades', cls: 'foda-petal-o' },
+  { cat: 'Amenaza',     label: 'Amenazas',      cls: 'foda-petal-a' },
+]
 
 export default function FodaFlower({ factores }) {
   const groups = {}
-  FODA_CATS.forEach(c => { groups[c] = factores.filter(f => f.foda_categoria === c) })
+  PETALOS.forEach(p => { groups[p.cat] = factores.filter(f => f.foda_categoria === p.cat) })
 
-  const hasAny = FODA_CATS.some(c => groups[c].length > 0)
+  const hasAny = PETALOS.some(p => groups[p.cat].length > 0)
   if (!hasAny) return null
 
   return (
@@ -19,40 +18,21 @@ export default function FodaFlower({ factores }) {
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: 'var(--text-primary)' }}>
         Diagrama FODA
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {FODA_CATS.map(cat => {
-          const cfg = FODA_CONFIG[cat]
-          const items = groups[cat]
+      <div className="foda-flower">
+        {PETALOS.map(p => {
+          const items = groups[p.cat]
           return (
-            <div key={cat} style={{
-              background: cfg.bg, border: `1px solid ${cfg.border}`,
-              borderRadius: 8, padding: '10px 12px', minHeight: 80,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                <span style={{ fontSize: 13 }}>{cfg.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {cfg.label}
-                </span>
-                <span style={{
-                  marginLeft: 'auto', background: cfg.color, color: '#fff',
-                  borderRadius: 99, fontSize: 10, fontWeight: 700,
-                  padding: '0 6px', lineHeight: '16px',
-                }}>
-                  {items.length}
-                </span>
+            <div key={p.cat} className={`foda-petal ${p.cls}`}>
+              <div className="foda-petal-head">
+                <span className="foda-petal-title">{p.label}</span>
+                <span className="foda-petal-count">{items.length}</span>
               </div>
               {items.length === 0 ? (
-                <p style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>Ninguno</p>
+                <p className="foda-petal-empty">Ninguno</p>
               ) : (
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <ul className="foda-petal-list">
                   {items.map(f => (
-                    <li key={f.factor_id} style={{
-                      fontSize: 10.5, color: 'var(--text-secondary)',
-                      display: 'flex', alignItems: 'flex-start', gap: 4,
-                    }}>
-                      <span style={{ color: cfg.color, marginTop: 1 }}>•</span>
-                      <span style={{ lineHeight: 1.4 }}>{f.factor_nombre}</span>
-                    </li>
+                    <li key={f.factor_id}>{f.factor_nombre}</li>
                   ))}
                 </ul>
               )}

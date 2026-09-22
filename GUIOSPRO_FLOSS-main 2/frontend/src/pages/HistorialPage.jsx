@@ -5,13 +5,23 @@ import StepResultados from '../components/wizard/StepResultados.jsx'
 
 const REC_COLOR = { A: 'var(--green)', B: 'var(--amber)', C: 'var(--red)' }
 
+// Preferencia de mostrar/ocultar la lista lateral (se recuerda entre sesiones)
+const LISTA_KEY = 'guiosad-historial-lista'
+function leerMostrarLista() {
+  try { return localStorage.getItem(LISTA_KEY) !== 'no' } catch { return true }
+}
+
 export default function HistorialPage() {
   const [historial, setHistorial] = useState([])
   const [selId, setSelId] = useState(null)
   const [detalle, setDetalle] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [mostrarLista, setMostrarLista] = useState(leerMostrarLista)
 
   useEffect(() => { getHistorial().then(setHistorial) }, [])
+  useEffect(() => {
+    try { localStorage.setItem(LISTA_KEY, mostrarLista ? 'si' : 'no') } catch { /* ignorar */ }
+  }, [mostrarLista])
 
   async function verDetalle(id) {
     setLoading(true)
@@ -25,11 +35,28 @@ export default function HistorialPage() {
 
   return (
     <div>
-      <h1 className="page-title">Historial</h1>
-      <p className="page-subtitle">Evaluaciones anteriores guardadas en la base de datos.</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
+        <div>
+          <h1 className="page-title">Historial</h1>
+          <p className="page-subtitle" style={{ marginBottom: 0 }}>Evaluaciones anteriores guardadas en la base de datos.</p>
+        </div>
+        <button
+          className="btn btn-outline btn-xs"
+          onClick={() => setMostrarLista(v => !v)}
+          title={mostrarLista ? 'Ocultar la lista para ver el detalle a pantalla completa' : 'Mostrar la lista de evaluaciones'}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            {mostrarLista
+              ? <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/>
+              : <path d="M13 5l7 7-7 7M6 5l7 7-7 7"/>}
+          </svg>
+          {mostrarLista ? 'Ocultar lista' : `Mostrar lista (${historial.length})`}
+        </button>
+      </div>
 
-      <div className="historial-grid">
+      <div className={`historial-grid${mostrarLista ? '' : ' historial-grid-solo-detalle'}`}>
         {/* Lista */}
+        {mostrarLista && (
         <div className="card" style={{ padding: 12 }}>
           {historial.length === 0 ? (
             <div className="empty-state" style={{ padding: '30px 12px' }}>
@@ -67,6 +94,7 @@ export default function HistorialPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* Detalle */}
         <div>
@@ -86,7 +114,7 @@ export default function HistorialPage() {
                   }}>Rec. {recCod}</span>
                 )}
               </div>
-              <StepResultados resultado={detalle.resultado} />
+              <StepResultados resultado={detalle.resultado} nombre={detalle.nombre} />
             </div>
           )}
           {!loading && !detalle && (
