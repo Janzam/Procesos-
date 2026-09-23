@@ -18,8 +18,8 @@ export default function RadarDimensiones({ factores }) {
           <PolarGrid stroke="var(--chart-grid)" />
           <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 500 }} />
           <PolarRadiusAxis angle={90} domain={[0, 4]} tickCount={5} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-          <Radar dataKey="ponderacion" stroke="var(--teal)" strokeWidth={2} fill="var(--teal)" fillOpacity={0.3}
-            dot={{ fill: 'var(--teal)', r: 4, strokeWidth: 0 }} />
+          <Radar dataKey="ponderacion" stroke="var(--brand)" strokeWidth={2} fill="var(--brand)" fillOpacity={0.3}
+            dot={{ fill: 'var(--brand)', r: 4, strokeWidth: 0 }} />
           <Tooltip
             contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: 8, fontSize: 12, color: 'var(--text-primary)' }}
             itemStyle={{ color: 'var(--text-primary)' }}

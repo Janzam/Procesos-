@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from .models import Evaluacion, EvaluacionFactor, EvaluacionSubfactor
 from .serializers import EvaluacionCreateSerializer, EvaluacionListSerializer
 from factores.models import Factor, Subfactor
@@ -26,23 +27,43 @@ class EvaluacionListCreateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
-        evaluacion = Evaluacion.objects.create(nombre=data['nombre'])
 
+        # Validación previa a cualquier escritura: un factor con alcance 'Ambos' no
+        # puede clasificarse en FODA sin que el decisor elija Interno o Externo.
+        # Antes se aceptaba nulo y el cálculo lo trataba como Externo sin avisar.
+        factores_db = Factor.objects.in_bulk([f['factor_id'] for f in data['factores']])
+        errores = []
         for f_data in data['factores']:
-            factor = get_object_or_404(Factor, pk=f_data['factor_id'])
-            ef = EvaluacionFactor.objects.create(
-                evaluacion=evaluacion,
-                factor=factor,
-                importancia_decisor=f_data['importancia_decisor'],
-                alcance_elegido=f_data.get('alcance_elegido'),
-            )
-            for s_data in f_data.get('subfactores', []):
-                subfactor = get_object_or_404(Subfactor, pk=s_data['subfactor_id'])
-                EvaluacionSubfactor.objects.create(
-                    evaluacion=evaluacion,
-                    subfactor=subfactor,
-                    valor=s_data['valor'],
+            factor = factores_db.get(f_data['factor_id'])
+            if factor is None:
+                errores.append(f"El factor con id {f_data['factor_id']} no existe.")
+            elif factor.alcance == 'Ambos' and not f_data.get('alcance_elegido'):
+                errores.append(
+                    f"El factor '{factor.nombre}' tiene alcance 'Ambos': "
+                    f"se requiere alcance_elegido ('Interno' o 'Externo')."
                 )
+        if errores:
+            return Response({'factores': errores}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Todo o nada: si algo falla a mitad del guardado no queda una evaluación
+        # incompleta en la base de datos.
+        with transaction.atomic():
+            evaluacion = Evaluacion.objects.create(nombre=data['nombre'])
+
+            for f_data in data['factores']:
+                EvaluacionFactor.objects.create(
+                    evaluacion=evaluacion,
+                    factor=factores_db[f_data['factor_id']],
+                    importancia_decisor=f_data['importancia_decisor'],
+                    alcance_elegido=f_data.get('alcance_elegido'),
+                )
+                for s_data in f_data.get('subfactores', []):
+                    subfactor = get_object_or_404(Subfactor, pk=s_data['subfactor_id'])
+                    EvaluacionSubfactor.objects.create(
+                        evaluacion=evaluacion,
+                        subfactor=subfactor,
+                        valor=s_data['valor'],
+                    )
 
         resultado = calcular_resultado_evaluacion(evaluacion)
         return Response({"id": evaluacion.id, "resultado": resultado}, status=status.HTTP_201_CREATED)

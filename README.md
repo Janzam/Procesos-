@@ -17,8 +17,6 @@ GUIOSPRO_FLOSS-main 2/
 │   ├── factores/                # App: dimensiones, factores y subfactores (datos maestros)
 │   ├── evaluaciones/            # App: persistencia de evaluaciones del decisor
 │   ├── recomendaciones/         # App: lógica de cálculo (IR, ponderación, FODA, recomendación)
-│   ├── usuarios/                # App stub — pendiente sprint posterior
-│   ├── reportes/                # App stub — pendiente sprint posterior
 │   └── fixtures/
 │       ├── factores.json        # 3 dimensiones y 18 factores
 │       └── subfactores.json     # 61 subfactores
@@ -29,9 +27,10 @@ GUIOSPRO_FLOSS-main 2/
 │   ├── vite.config.js
 │   └── src/
 │       ├── api/guiosad.js       # Llamadas al backend REST
-│       ├── components/wizard/   # Wizard de 3 pasos (StepFactores, StepSubfactores, StepResultados)
-│       ├── components/          # FodaFlower, RadarDimensiones
-│       └── pages/               # EvaluacionPage, HistorialPage
+│       ├── components/wizard/   # Asistente de 4 pasos (StepSoftware, StepFactores, StepSubfactores, StepResultados)
+│       ├── components/          # Sidebar, Stepper, FodaFlower, RadarDimensiones
+│       ├── utils/               # exportar.js (PDF con jsPDF, Excel con ExcelJS)
+│       └── pages/               # DashboardPage, EvaluacionPage, HistorialPage
 ├── docker-compose.yml           # Postgres + backend + frontend
 ├── CHANGELOG.md                 # Qué cambió vs el sistema original
 ├── MIGRACION_GUIOSAD.md        # Tabla de trazabilidad técnica (archivo por archivo)
@@ -69,7 +68,7 @@ Luego abrir: **http://localhost:3000**
 ```bash
 cd "GUIOSPRO_FLOSS-main 2/backend"
 pip install -r requirements.txt
-python manage.py makemigrations factores evaluaciones usuarios
+python manage.py makemigrations factores evaluaciones
 python manage.py migrate
 python manage.py loaddata fixtures/factores.json
 python manage.py loaddata fixtures/subfactores.json
@@ -98,7 +97,8 @@ App disponible en: **http://localhost:5173**
 | `POST` | `/api/evaluaciones/` | Crea evaluación y retorna FODA + recomendación |
 | `GET` | `/api/evaluaciones/` | Historial de evaluaciones |
 | `GET` | `/api/evaluaciones/{id}/` | Detalle de una evaluación con su resultado |
-| `POST` | `/api/recomendaciones/calcular-ir/` | Calcula importancia relativa en tiempo real |
+| `GET` | `/api/evaluaciones/dashboard/` | Métricas agregadas de todas las evaluaciones |
+| `GET` | `/api/recomendaciones/matriz-ir/` | Matriz 4×4 de importancia relativa (IS × ID) |
 
 ---
 

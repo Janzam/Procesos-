@@ -152,7 +152,7 @@ export default function DashboardPage({ onNavigate }) {
           <BarrasHorizontales data={recData} colorDe={d => REC_INFO[d.key].color} ancho={170} />
         </ChartCard>
         <ChartCard title="Factores a mejorar" subtitle="Veces clasificados como Debilidad o Amenaza (top 5)" height={Math.max(150, probData.length * 30 + 30)}>
-          <BarrasHorizontales data={probData} colorDe={() => 'var(--teal)'} ancho={190} />
+          <BarrasHorizontales data={probData} colorDe={() => 'var(--brand)'} ancho={190} />
         </ChartCard>
       </div>
 

@@ -1,15 +1,17 @@
-# origen: main.py (compute_recommendation, funciones de cálculo IR) | cambio: expuesto como endpoint REST
+# origen: main.py (funciones de cálculo IR) | cambio: expuesto como endpoint REST
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .services import calcular_importancia_relativa, calcular_recomendacion
+from .services import matriz_importancia_relativa, NIVELES
 
 
-class IRCalculoView(APIView):
-    """Endpoint utilitario para calcular IR en tiempo real desde el frontend (Paso 1-2)."""
-    def post(self, request):
-        is_val = request.data.get('importancia_sugerida')
-        id_val = request.data.get('importancia_decisor')
-        if not (is_val and id_val):
-            return Response({'error': 'Se requieren importancia_sugerida e importancia_decisor'}, status=400)
-        resultado = calcular_importancia_relativa(int(is_val), int(id_val))
-        return Response(resultado)
+class MatrizIRView(APIView):
+    """
+    Matriz 4x4 con la Importancia Relativa de cada combinación (IS, ID).
+    El frontend la consume una sola vez y la consulta como matriz[IS-1][ID-1],
+    de modo que la fórmula IR vive únicamente en el backend.
+    """
+    def get(self, request):
+        return Response({
+            "niveles": NIVELES,
+            "matriz": matriz_importancia_relativa(),
+        })

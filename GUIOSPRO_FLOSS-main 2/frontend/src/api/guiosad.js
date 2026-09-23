@@ -36,11 +36,18 @@ export async function getEvaluacion(id) {
   return res.json()
 }
 
-export function calcularIRLocal(importancia_sugerida, importancia_decisor) {
-  // origen: main.py líneas 185-189 | cambio: ninguno, cálculo local para feedback inmediato
-  const NIVELES = ['Irrelevante', 'Opcional', 'Importante', 'Fundamental']
-  const r1 = importancia_sugerida - 1
-  const r2 = importancia_decisor - 1
-  const r = Math.floor((r1 + r2) / 2)
-  return { indice: r, etiqueta: NIVELES[r], relevante: r > 0 }
+export async function getMatrizIR() {
+  const res = await fetch(`${BASE}/recomendaciones/matriz-ir/`)
+  if (!res.ok) throw new Error('Error al cargar la matriz de importancia relativa')
+  return res.json()
+}
+
+// La fórmula de Importancia Relativa vive SOLO en el backend
+// (recomendaciones/services.py). Aquí únicamente se consulta la matriz 4x4 que
+// envía /api/recomendaciones/matriz-ir/, para que no puedan divergir.
+const IR_DESCONOCIDA = { indice: 0, etiqueta: '—', relevante: false }
+
+export function calcularIR(matrizIR, importancia_sugerida, importancia_decisor) {
+  const fila = matrizIR?.[importancia_sugerida - 1]
+  return fila?.[importancia_decisor - 1] ?? IR_DESCONOCIDA
 }

@@ -4,6 +4,100 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v2.1.0 — Corrección de bugs, nuevas funcionalidades, rediseño y limpieza (2026-09-23)
+
+### Resumen
+
+**Ninguna fórmula de la metodología GUIOSAD fue modificada.** Esta versión corrige
+defectos de implementación, incorpora funcionalidades que no existían, rediseña la
+interfaz y elimina el código que no se usaba. Las evaluaciones guardadas antes de
+esta versión conservan exactamente la misma recomendación A/B/C.
+
+---
+
+### 🐞 Bugs corregidos
+
+| # | Problema | Corrección |
+|---|---|---|
+| 1 | Un factor con alcance `Ambos` sin elección del decisor se clasificaba como **Externo en silencio**: `clasificar_foda` solo comprobaba `== "Interno"` y todo lo demás caía en el `else`. Afectaba al factor *Soporte*. | El endpoint rechaza con 400 si falta `alcance_elegido`; `clasificar_foda` lanza error ante un alcance inválido; el frontend envía siempre el valor explícito que muestra el formulario |
+| 2 | Las tarjetas de dimensión mostraban **"Dimensión 1, 2, 3"** y las tres del mismo color: el frontend leía `f.dimension` (el id numérico) en lugar de `f.dimension_nombre` | Se usa `dimension_nombre`; cada dimensión recupera su nombre y su color |
+| 3 | El badge **"IR" del paso Factores salía siempre vacío**: leía `ir.valor`, una propiedad inexistente | Se usan `ir.indice` e `ir.etiqueta` |
+| 4 | La **fórmula IR estaba duplicada** en Python y en JavaScript: dos copias que podían divergir sin aviso | Nuevo endpoint `GET /api/recomendaciones/matriz-ir/` con la matriz 4×4 calculada por Python; el frontend ya no contiene la fórmula |
+| 5 | **Factores evaluados que el usuario nunca veía**: el paso Subfactores excluía los factores sin ajustar, pero el cálculo sí los enviaba como relevantes con todos sus subfactores en 1 | Ambos lugares aplican la misma regla de relevancia |
+| 6 | **Sin transacción**: un fallo a mitad del guardado dejaba una evaluación incompleta en la base de datos | Validación previa a cualquier escritura + `transaction.atomic()` |
+| 7 | El **círculo A/B/C del historial nunca aparecía**: el listado no devolvía `recomendacion_codigo` | El endpoint de listado incluye el código de recomendación |
+| 8 | La **barra de progreso no contaba** los subfactores marcados como "No cumple" (solo contaba valores > 1) | Cuenta los realmente respondidos |
+| 9 | `calcular_recomendacion` asignaba una tercera bandera (`c`) que nunca se leía — resto del bug original de `main.py` | Dos banderas con nombre: `hay_critico` / `hay_opcional`. Sin cambio de comportamiento |
+| 10 | `calcular_ponderacion_global` devolvía **0.0** con lista vacía, valor que al clasificarse habría dado siempre Debilidad/Amenaza | Devuelve `None` |
+| 11 | **N+1 consultas**: una consulta de subfactores por cada factor y la dimensión sin `select_related` | Una sola consulta agrupada |
+
+---
+
+### 🆕 Nuevas funcionalidades
+
+| Funcionalidad | Detalle |
+|---|---|
+| **Paso "Software a evaluar"** | Nuevo primer paso del asistente: nombre, versión, tipo de licencia, proveedor, organización y evaluador. Todos opcionales; componen el nombre de la evaluación |
+| **Dashboard** | Nueva sección con métricas agregadas de todas las evaluaciones: banner de foco, KPIs y gráficos de veredictos y factores más problemáticos. Endpoint `GET /api/evaluaciones/dashboard/` |
+| **Exportación PDF** | Implementada en el frontend con jsPDF: cabecera, recomendación, tabla de factores y tabla FODA de 4 columnas, con paginación |
+| **Exportación Excel** | Implementada en el frontend con ExcelJS: tres hojas con formato, autofiltro, paneles fijos y colores por categoría |
+| **Persistencia del progreso** | El paso actual, los datos del software y todas las respuestas se guardan en `localStorage`. Al recargar se continúa donde se estaba |
+| **Avance automático** | Al completar todos los subfactores de un factor, el asistente salta solo al siguiente pendiente |
+| **Preferencias recordadas** | Tema claro/oscuro, sección activa, y visibilidad del menú lateral, los gráficos y la lista del historial |
+| **Avisos de estado** | Contadores de progreso por paso y confirmación antes de calcular si quedan preguntas sin responder (que se cuentan como "No cumple") |
+| **Carga con reintentos** | El frontend reintenta cargar los factores mientras el backend termina de arrancar en Docker |
+
+---
+
+### 🎨 Rediseño de interfaz
+
+| Antes | Ahora |
+|---|---|
+| Paleta turquesa (`#14b8a6`) | Paleta índigo/pizarra (`#6366f1`); variables CSS renombradas de `--teal*` a `--brand*` |
+| Sliders de rango 1–4 | Selectores de cuatro botones con la etiqueta de cada nivel, coloreados de rojo a verde |
+| Cuadrantes FODA rectangulares | Diagrama FODA en flor de cuatro pétalos |
+| Tres cabeceras de dimensión iguales | Una por dimensión: celeste (Tecnológica), morado (Organizacional), naranja (Económica) |
+| Desplegable para elegir factor en Subfactores | Lista lateral fija con barra de progreso y ✓ por factor |
+| Radar de 220 px | Radar de 320 px con colores del tema |
+| Pie de menú con usuario ficticio "Decisor" | Eliminado (el sistema no tiene autenticación) |
+
+Además: modo claro/oscuro revisado en todos los componentes, paneles plegables
+(menú lateral, gráficos de resultados, lista del historial) y diseño adaptable.
+
+---
+
+### 🧹 Código y archivos eliminados
+
+| Elemento | Motivo |
+|---|---|
+| `backend/reportes/` | Los stubs `exportar_pdf.py` y `exportar_excel.py` solo lanzaban `NotImplementedError`. La exportación se resolvió en el frontend |
+| `backend/usuarios/` | Modelo `Usuario` que ningún módulo importaba. El sistema no tiene autenticación |
+| Tabla `usuarios_usuario` | Eliminada de PostgreSQL junto con su registro en `django_migrations`. Estaba vacía y sin claves foráneas |
+| `POST /api/recomendaciones/calcular-ir/` | Endpoint que nadie llamaba; era el motivo de que la fórmula IR se hubiera duplicado en JavaScript |
+| `GET /api/factores/dimensiones/` | Endpoint, vista y `DimensionSerializer` nunca consultados por el frontend |
+| CSS muerto | ~90 líneas: sliders, desplegable anterior, degradados de dimensión, barra de progreso antigua y clases huérfanas |
+
+---
+
+### ⚠️ Límites conocidos de la fórmula (**no modificados**)
+
+Documentados para decisión posterior. Son comportamientos de la metodología
+original, no defectos de implementación; cambiarlos supone proponer una variante
+del método y requiere aprobación académica.
+
+| Límite | Efecto observado |
+|---|---|
+| Ningún factor tiene importancia sugerida 4 | El nivel **Fundamental** es inalcanzable: `IR` necesita `IS=4` e `ID=4` |
+| División entera en `IR = (IS-1 + ID-1) // 2` | Varias posiciones del selector producen el mismo resultado; con `IS=3` solo hay 2 resultados distintos |
+| Umbral FODA en 3.0 | Corte duro sin zona gris: 2.99 → Debilidad, 3.00 → Fortaleza |
+| Banderas booleanas en la recomendación | **Un solo** factor Debilidad/Amenaza importante fuerza la recomendación C sobre toda la evaluación |
+| "Desconozco si cumple" vale 2 | La duda entra en el promedio como si fuera un cumplimiento parcial bajo |
+| Valores por defecto (ID = 1, subfactor = 1) | Lo no respondido se calcula como "No cumple". Mitigado con avisos, sin alterar el cálculo |
+| Factores con 1 a 11 subfactores | Todos pesan igual en la recomendación final |
+
+---
+
+
 ## v2.0.0 — Migración arquitectural (2026-09-20)
 
 ### Resumen
@@ -68,6 +162,10 @@ El resultado lógico de las recomendaciones **no cambió** — solo se corrigió
 ---
 
 ### 🚧 Funcionalidades pendientes (stubs — sprint posterior)
+
+> **Estado actual:** los tres stubs se resolvieron en v2.1.0 — exportación PDF y Excel
+> implementadas en el frontend, y la app `usuarios` eliminada. Se conservan aquí como
+> registro histórico de lo que incluía v2.0.0.
 
 | Feature | Archivo stub | Estado |
 |---|---|---|

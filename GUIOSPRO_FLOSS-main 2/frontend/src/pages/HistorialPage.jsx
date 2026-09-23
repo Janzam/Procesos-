@@ -100,7 +100,7 @@ export default function HistorialPage() {
         <div>
           {loading && (
             <div className="empty-state">
-              <p style={{ color: 'var(--teal)' }}>Cargando…</p>
+              <p style={{ color: 'var(--brand)' }}>Cargando…</p>
             </div>
           )}
           {!loading && detalle && (

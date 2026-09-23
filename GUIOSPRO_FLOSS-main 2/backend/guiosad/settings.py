@@ -16,8 +16,6 @@ INSTALLED_APPS = [
     'factores',
     'evaluaciones',
     'recomendaciones',
-    'usuarios',
-    'reportes',
 ]
 
 MIDDLEWARE = [

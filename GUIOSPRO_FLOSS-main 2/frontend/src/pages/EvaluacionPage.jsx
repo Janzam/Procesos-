@@ -1,6 +1,6 @@
 // origen: main.py (flujo 6 pasos) | cambio: wizard con Stepper visual y layout moderno
 import { useState, useEffect } from 'react'
-import { getFactores, crearEvaluacion, calcularIRLocal } from '../api/guiosad.js'
+import { getFactores, getMatrizIR, crearEvaluacion, calcularIR } from '../api/guiosad.js'
 import Stepper from '../components/Stepper.jsx'
 import StepSoftware, { SOFTWARE_VACIO } from '../components/wizard/StepSoftware.jsx'
 import StepFactores from '../components/wizard/StepFactores.jsx'
@@ -51,16 +51,19 @@ export default function EvaluacionPage() {
   }, [step, software, evFactores, evSubfactores, resultado])
 
   const [cargandoFactores, setCargandoFactores] = useState(true)
+  const [matrizIR, setMatrizIR] = useState(null)
 
-  // Carga los factores con reintentos: en Docker el backend tarda unos segundos
-  // en arrancar (migraciones + fixtures) y el primer fetch puede fallar.
+  // Carga factores y matriz IR con reintentos: en Docker el backend tarda unos
+  // segundos en arrancar (migraciones + fixtures) y el primer fetch puede fallar.
+  // La matriz IR viene del backend para no duplicar la fórmula en JavaScript.
   async function cargarFactores(intentos = 5) {
     setCargandoFactores(true)
     setError(null)
     for (let i = 0; i < intentos; i++) {
       try {
-        const data = await getFactores()
+        const [data, ir] = await Promise.all([getFactores(), getMatrizIR()])
         setFactores(data)
+        setMatrizIR(ir.matriz)
         setCargandoFactores(false)
         return
       } catch {
@@ -73,19 +76,44 @@ export default function EvaluacionPage() {
 
   useEffect(() => { cargarFactores() }, [])
 
+  // Subfactores sin responder de los factores que sí entrarán en el cálculo
+  function contarPendientes() {
+    return factores.reduce((n, f) => {
+      const ev = evFactores[f.id]
+      const id = ev ? ev.importancia_decisor : 1
+      if (!calcularIR(matrizIR, f.importancia_sugerida, id).relevante) return n
+      return n + f.subfactores.filter(s => evSubfactores[s.id] === undefined).length
+    }, 0)
+  }
+
   async function handleCalcular() {
+    // El valor por defecto de un subfactor sin responder es 1 ("No cumple").
+    // No se cambia el cálculo, pero se avisa antes en vez de aplicarlo en silencio.
+    const pendientes = contarPendientes()
+    if (pendientes > 0) {
+      const seguir = window.confirm(
+        `Hay ${pendientes} subfactor${pendientes === 1 ? '' : 'es'} sin responder.\n\n` +
+        'Se calcularán como «No cumple el requisito», lo que baja la ponderación ' +
+        'y puede cambiar la recomendación final.\n\n¿Desea continuar igualmente?'
+      )
+      if (!seguir) return
+    }
+
     setLoading(true)
     setError(null)
     try {
       const factoresPayload = factores.map(f => {
         const ev = evFactores[f.id] || { importancia_decisor: 1, alcance_elegido: f.alcance !== 'Ambos' ? f.alcance : 'Interno' }
-        const ir = calcularIRLocal(f.importancia_sugerida, ev.importancia_decisor)
+        const ir = calcularIR(matrizIR, f.importancia_sugerida, ev.importancia_decisor)
         return {
           factor_id: f.id,
           importancia_decisor: ev.importancia_decisor,
-          alcance_elegido: f.alcance === 'Ambos' ? ev.alcance_elegido : null,
+          // Para los factores 'Ambos' se envía siempre un alcance explícito: el
+          // formulario muestra 'Interno' preseleccionado, así que se manda ese
+          // mismo valor en lugar de null (que el backend trataba como Externo).
+          alcance_elegido: f.alcance === 'Ambos' ? (ev.alcance_elegido || 'Interno') : null,
           subfactores: ir.relevante
-            ? f.subfactores.map(s => ({ subfactor_id: s.id, valor: evSubfactores[s.id] || 1 }))
+            ? f.subfactores.map(s => ({ subfactor_id: s.id, valor: evSubfactores[s.id] ?? 1 }))
             : [],
         }
       })
@@ -144,8 +172,8 @@ export default function EvaluacionPage() {
         {(step === 1 || step === 2) && cargandoFactores && (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando factores…</p>
         )}
-        {step === 1 && !cargandoFactores && <StepFactores factores={factores} evaluacion={evFactores} onChange={setEvFactores} />}
-        {step === 2 && !cargandoFactores && <StepSubfactores factores={factores} evaluacionFactores={evFactores} subfactores={evSubfactores} onChange={setEvSubfactores} />}
+        {step === 1 && !cargandoFactores && <StepFactores factores={factores} evaluacion={evFactores} onChange={setEvFactores} matrizIR={matrizIR} />}
+        {step === 2 && !cargandoFactores && <StepSubfactores factores={factores} evaluacionFactores={evFactores} subfactores={evSubfactores} onChange={setEvSubfactores} matrizIR={matrizIR} />}
         {step === 3 && <StepResultados resultado={resultado} nombre={nombreEvaluacion(software)} />}
       </div>
 

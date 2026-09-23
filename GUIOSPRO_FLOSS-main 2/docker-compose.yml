@@ -16,7 +16,7 @@ services:
   backend:
     build: ./backend
     command: >
-      sh -c "python manage.py makemigrations factores evaluaciones usuarios &&
+      sh -c "python manage.py makemigrations factores evaluaciones &&
              python manage.py migrate &&
              python manage.py loaddata fixtures/factores.json &&
              python manage.py loaddata fixtures/subfactores.json &&
