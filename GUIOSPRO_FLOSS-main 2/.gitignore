@@ -50,3 +50,8 @@ secrets/
 # (no ignorar — son datos semilla del sistema)
 # backend/fixtures/factores.json
 # backend/fixtures/subfactores.json
+
+# ─── Material de referencia local (no se versiona) ───
+# Sistema original y diagramas: se conservan en el equipo, fuera del repositorio
+docs/
+proyecto base 0/

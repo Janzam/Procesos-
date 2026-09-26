@@ -52,10 +52,16 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
               <div className="card-body">
                 {dimFactores.map(f => {
                   const idVal = idDe(f)
+                  // Sin elección del decisor se usa el mínimo (1). Se muestra en gris
+                  // neutro, no como si el usuario hubiera elegido "Irrelevante".
+                  const tocado = Boolean(evaluacion[f.id])
                   return (
                     <div className="fac-row" key={f.id}>
                       <span className="fac-nombre">{f.nombre}</span>
-                      <span className="fac-sugerida">La guía sugiere: {NIVELES[f.importancia_sugerida - 1]}</span>
+                      <span className="fac-sugerida">
+                        La guía sugiere: {NIVELES[f.importancia_sugerida - 1]}
+                        {f.alcance !== 'Ambos' && ` · Alcance ${f.alcance.toLowerCase()}`}
+                      </span>
 
                       <div className="fac-control">
                         <div className="segmented segmented-fac" role="group" aria-label={`Importancia de ${f.nombre}`}>
@@ -63,8 +69,9 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
                             <button
                               key={nivel}
                               type="button"
-                              className={`seg-btn${idVal === i + 1 ? ` seg-activo ${SEG_CLASS[i]}` : ''}`}
-                              aria-pressed={idVal === i + 1}
+                              className={`seg-btn${idVal === i + 1 ? (tocado ? ` seg-activo ${SEG_CLASS[i]}` : ' seg-defecto') : ''}`}
+                              aria-pressed={tocado && idVal === i + 1}
+                              title={!tocado && i === 0 ? 'Valor por defecto: todavía no ha elegido' : undefined}
                               onClick={() => handleNivel(f.id, i + 1)}
                             >
                               {nivel}

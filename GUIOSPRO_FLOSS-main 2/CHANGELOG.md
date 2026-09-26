@@ -30,6 +30,7 @@ esta versión conservan exactamente la misma recomendación A/B/C.
 | 9 | `calcular_recomendacion` asignaba una tercera bandera (`c`) que nunca se leía — resto del bug original de `main.py` | Dos banderas con nombre: `hay_critico` / `hay_opcional`. Sin cambio de comportamiento |
 | 10 | `calcular_ponderacion_global` devolvía **0.0** con lista vacía, valor que al clasificarse habría dado siempre Debilidad/Amenaza | Devuelve `None` |
 | 11 | **N+1 consultas**: una consulta de subfactores por cada factor y la dimensión sin `select_related` | Una sola consulta agrupada |
+| 12 | El **alcance dejó de mostrarse** en el paso Factores. El rediseño `e45fcde` eliminó la rama que lo pintaba como texto en los 17 factores que no son «Ambos»; el dato seguía usándose en el cálculo, pero el decisor ya no podía saber por qué un factor acababa en Debilidad y no en Amenaza | Se muestra de nuevo junto a la importancia sugerida. En *Soporte* se mantiene el desplegable, por ser el único que el decisor debe elegir |
 
 ---
 
@@ -60,6 +61,7 @@ esta versión conservan exactamente la misma recomendación A/B/C.
 | Desplegable para elegir factor en Subfactores | Lista lateral fija con barra de progreso y ✓ por factor |
 | Radar de 220 px | Radar de 320 px con colores del tema |
 | Pie de menú con usuario ficticio "Decisor" | Eliminado (el sistema no tiene autenticación) |
+| Botón «Irrelevante» marcado en rojo por defecto | El valor por defecto se muestra en gris neutro; el color aparece solo cuando el decisor elige. Se corrigió también el `aria-pressed`, que anunciaba una selección inexistente |
 
 Además: modo claro/oscuro revisado en todos los componentes, paneles plegables
 (menú lateral, gráficos de resultados, lista del historial) y diseño adaptable.
@@ -94,6 +96,35 @@ del método y requiere aprobación académica.
 | "Desconozco si cumple" vale 2 | La duda entra en el promedio como si fuera un cumplimiento parcial bajo |
 | Valores por defecto (ID = 1, subfactor = 1) | Lo no respondido se calcula como "No cumple". Mitigado con avisos, sin alterar el cálculo |
 | Factores con 1 a 11 subfactores | Todos pesan igual en la recomendación final |
+
+---
+
+
+### 📌 Diferencia conocida con la matriz GUIOSAD 2021
+
+Al conservar el sistema original en `proyecto base 0/` se localizó el documento
+`MATRIZ RECOMENDACION GUIOSAD 2021.xlsx`, fuente autorizada de las reglas de
+recomendación. De su cotejo con la implementación resultan dos diferencias que
+**se documentan pero no se modifican**, por afectar al significado de las
+evaluaciones ya registradas.
+
+| Aspecto | Matriz GUIOSAD 2021 | Implementación actual |
+|---|---|---|
+| Letra del caso desfavorable | **A** — «No es posible adoptar» | **C** — «No adoptar todavía» |
+| Letra del caso favorable | **C** — «Es posible adoptar…» | **A** — «Adoptar el software» |
+| Texto del caso desfavorable | «No es posible adoptar. Se han detectado amenazas y/o debilidades en factores cuya importancia relativa es fundamental o importante, por lo tanto, es indispensable que el decisor revise los subfactores…» | «La organización debe de proporcionar los recursos necesarios que garanticen una adopción satisfactoria…» |
+
+**La lógica de decisión es idéntica.** La matriz especifica de forma explícita el
+criterio de «AL MENOS 1» factor clasificado como Amenaza o Debilidad, discriminado
+según su importancia relativa, que es exactamente lo que implementa
+`calcular_recomendacion()`. Solo difieren la letra asignada a cada banda y la
+redacción del caso desfavorable.
+
+La inversión no se introdujo en esta migración: ya estaba en `main.py` del sistema
+original, donde las variables conservan el orden de la matriz (`ra` contiene el
+peor caso) mientras que los textos fueron reetiquetados con las letras invertidas.
+
+Los otros dos textos sí coinciden casi literalmente con la matriz.
 
 ---
 
