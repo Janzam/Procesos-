@@ -102,31 +102,45 @@ del método y requiere aprobación académica.
 ---
 
 
-### 📌 Diferencia conocida con la matriz GUIOSAD 2021
+### 📌 Correspondencia con la metodología GUIOS (tesis doctoral)
 
-Al conservar el sistema original en `proyecto base 0/` se localizó el documento
-`MATRIZ RECOMENDACION GUIOSAD 2021.xlsx`, fuente autorizada de las reglas de
-recomendación. De su cotejo con la implementación resultan dos diferencias que
-**se documentan pero no se modifican**, por afectar al significado de las
-evaluaciones ya registradas.
+La implementación se cotejó paso a paso con la tesis doctoral que define GUIOS,
+que es la **fuente autorizada** de la metodología. El resultado es que el sistema
+la reproduce fielmente:
 
-| Aspecto | Matriz GUIOSAD 2021 | Implementación actual |
+| Elemento | Referencia en la tesis | Estado |
 |---|---|---|
-| Letra del caso desfavorable | **A** — «No es posible adoptar» | **C** — «No adoptar todavía» |
-| Letra del caso favorable | **C** — «Es posible adoptar…» | **A** — «Adoptar el software» |
-| Texto del caso desfavorable | «No es posible adoptar. Se han detectado amenazas y/o debilidades en factores cuya importancia relativa es fundamental o importante, por lo tanto, es indispensable que el decisor revise los subfactores…» | «La organización debe de proporcionar los recursos necesarios que garanticen una adopción satisfactoria…» |
+| Matriz de Importancia Relativa | Figura 5.10 | Coincide en las 16 combinaciones con `(IS−1 + ID−1) // 2` |
+| Selección de factores relevantes | Sección 5.2.3 — «importancia relativa mayor a 1» | Coincide: se descartan los Irrelevantes |
+| Escala de subfactores | Sección 5.2.3 — 1 No cumple, 2 No sé, 3 Cumple parcialmente, 4 Cumple | Coincide |
+| Ponderación media del factor | Sección 5.2.3 | Coincide: promedio de los subfactores |
+| Clasificación FODA | Ecuación 5.3 | Coincide, incluido el umbral en 3 |
+| Factores internos y externos | Tabla 5.4 | Coincide: 6 internos, 11 externos y *Soporte* como único «Ambos» |
+| Letras A / B / C | Páginas 105-106 | Coincide: **A = adoptar**, B = adoptar con matices, C = posponer |
 
-**La lógica de decisión es idéntica.** La matriz especifica de forma explícita el
-criterio de «AL MENOS 1» factor clasificado como Amenaza o Debilidad, discriminado
-según su importancia relativa, que es exactamente lo que implementa
-`calcular_recomendacion()`. Solo difieren la letra asignada a cada banda y la
-redacción del caso desfavorable.
+**Advertencia sobre el archivo `MATRIZ RECOMENDACION GUIOSAD 2021.xlsx`.** Ese
+documento, incluido con el sistema original, es un **borrador previo** a la tesis
+y usa la nomenclatura invertida (A como caso desfavorable). No debe tomarse como
+referencia: la tesis es posterior y fija el criterio definitivo, que es el que
+implementa el sistema.
 
-La inversión no se introdujo en esta migración: ya estaba en `main.py` del sistema
-original, donde las variables conservan el orden de la matriz (`ra` contiene el
-peor caso) mientras que los textos fueron reetiquetados con las letras invertidas.
+#### Dos observaciones derivadas del cotejo
 
-Los otros dos textos sí coinciden casi literalmente con la matriz.
+**El nivel «Fundamental» no puede alcanzarse.** Según la Tabla 5.3 de la tesis, la
+Importancia del Experto es 3 en los 18 factores, por lo que la Importancia
+Sugerida solo puede valer 2 o 3, y la Importancia Relativa nunca llega a 4. No es
+un defecto de la implementación sino una consecuencia de cómo quedó calibrado el
+instrumento. La tesis reconoce esta clase de limitación en la página 88, al
+admitir que existen formas de cálculo que aprovecharían mejor la precisión de los
+valores intermedios.
+
+**El paso 6 es el único que la tesis no formaliza.** Las recomendaciones A, B y C
+se describen con texto, y ese texto admite dos lecturas: para C habla de mayoría
+(«las amenazas y debilidades son mayores a las oportunidades y fortalezas») y
+para B habla de existencia («se han detectado… en características cuya importancia
+relativa es opcional»). El `main.py` original contenía ambas implementaciones, una
+sobrescribiendo a la otra. El sistema aplica la de existencia, igual que el código
+original en su estado final.
 
 ---
 

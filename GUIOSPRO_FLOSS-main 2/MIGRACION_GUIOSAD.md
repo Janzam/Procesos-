@@ -138,4 +138,4 @@ así que modificarlos supone proponer una variante del método y necesita aproba
 - Un solo factor Debilidad/Amenaza importante fuerza la recomendación C
 - "Desconozco si cumple" entra en el promedio con valor 2
 - Los factores pesan igual tengan 1 u 11 subfactores
-- Las letras A/B/C están invertidas respecto a la matriz GUIOSAD 2021 (ver `CHANGELOG.md` → v2.1.0)
+- El paso 6 (recomendación A/B/C) es el único que la tesis no formaliza: su descripción admite una lectura por mayoría y otra por existencia (ver `CHANGELOG.md` → v2.1.0)
