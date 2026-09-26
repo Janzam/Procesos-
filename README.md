@@ -32,6 +32,7 @@ GUIOSPRO_FLOSS-main 2/
 │       ├── utils/               # exportar.js (PDF con jsPDF, Excel con ExcelJS)
 │       └── pages/               # DashboardPage, EvaluacionPage, HistorialPage
 ├── docker-compose.yml           # Postgres + backend + frontend
+├── MEJORAS.md                   # Mejoras frente al sistema original (resumen)
 ├── CHANGELOG.md                 # Qué cambió vs el sistema original
 ├── MIGRACION_GUIOSAD.md        # Tabla de trazabilidad técnica (archivo por archivo)
 └── README.md                    # Este archivo
@@ -116,5 +117,6 @@ App disponible en: **http://localhost:5173**
 
 ## Historial de cambios
 
-Ver [`CHANGELOG.md`](GUIOSPRO_FLOSS-main%202/CHANGELOG.md) para el detalle completo de qué se migró,
+Ver [`MEJORAS.md`](GUIOSPRO_FLOSS-main%202/MEJORAS.md) para el resumen de mejoras frente al sistema
+original, y [`CHANGELOG.md`](GUIOSPRO_FLOSS-main%202/CHANGELOG.md) para el detalle completo de qué se migró,
 qué se preservó y qué cambió respecto al sistema original (Python + flexx).
