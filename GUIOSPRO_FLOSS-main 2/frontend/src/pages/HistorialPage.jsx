@@ -5,6 +5,29 @@ import StepResultados from '../components/wizard/StepResultados.jsx'
 
 const REC_COLOR = { A: 'var(--green)', B: 'var(--amber)', C: 'var(--red)' }
 
+// Datos del software evaluado (RF-02). Solo se muestran los que se rellenaron;
+// las evaluaciones guardadas antes de esta versión no los tienen.
+const CAMPOS_SOFTWARE = [
+  ['software_nombre', 'Software'], ['version', 'Versión'], ['licencia', 'Licencia'],
+  ['proveedor', 'Proveedor'], ['organizacion', 'Organización'], ['evaluador', 'Evaluador'],
+]
+
+function FichaSoftware({ software }) {
+  if (!software) return null
+  const datos = CAMPOS_SOFTWARE.filter(([k]) => software[k])
+  if (datos.length === 0) return null
+  return (
+    <div className="ficha-software">
+      {datos.map(([k, etiqueta]) => (
+        <div key={k}>
+          <span className="ficha-etiqueta">{etiqueta}</span>
+          <span className="ficha-valor">{software[k]}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // Preferencia de mostrar/ocultar la lista lateral (se recuerda entre sesiones)
 const LISTA_KEY = 'guiosad-historial-lista'
 function leerMostrarLista() {
@@ -114,6 +137,7 @@ export default function HistorialPage() {
                   }}>Rec. {recCod}</span>
                 )}
               </div>
+              <FichaSoftware software={detalle.software} />
               <StepResultados resultado={detalle.resultado} nombre={detalle.nombre} />
             </div>
           )}

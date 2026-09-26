@@ -5,7 +5,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from .models import Evaluacion, EvaluacionFactor, EvaluacionSubfactor
-from .serializers import EvaluacionCreateSerializer, EvaluacionListSerializer
+from .serializers import EvaluacionCreateSerializer, EvaluacionListSerializer, CAMPOS_SOFTWARE
 from factores.models import Factor, Subfactor
 from recomendaciones.services import calcular_resultado_evaluacion
 
@@ -48,7 +48,10 @@ class EvaluacionListCreateView(APIView):
         # Todo o nada: si algo falla a mitad del guardado no queda una evaluación
         # incompleta en la base de datos.
         with transaction.atomic():
-            evaluacion = Evaluacion.objects.create(nombre=data['nombre'])
+            evaluacion = Evaluacion.objects.create(
+                nombre=data['nombre'],
+                **{c: data.get(c, '') for c in CAMPOS_SOFTWARE},
+            )
 
             for f_data in data['factores']:
                 EvaluacionFactor.objects.create(
@@ -146,5 +149,6 @@ class EvaluacionDetailView(APIView):
             "id": evaluacion.id,
             "nombre": evaluacion.nombre,
             "creado_en": evaluacion.creado_en,
+            "software": {c: getattr(evaluacion, c) for c in CAMPOS_SOFTWARE},
             "resultado": resultado,
         })

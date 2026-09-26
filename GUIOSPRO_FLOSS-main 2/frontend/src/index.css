@@ -572,6 +572,19 @@ body {
 .page-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
 .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
 
+/* Ficha con los datos del software evaluado (historial) */
+.ficha-software {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px 22px; margin-bottom: 20px; padding: 14px 18px;
+  border: 1px solid var(--border-glass); border-radius: var(--radius);
+  background: var(--bg-card);
+}
+.ficha-etiqueta {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;
+}
+.ficha-valor { font-size: 13px; color: var(--text-primary); }
+
 /* ── Historial ───────────────────────────────────────────── */
 .historial-grid { display: grid; grid-template-columns: 270px 1fr; gap: 20px; align-items: start; }
 .historial-grid-solo-detalle { grid-template-columns: 1fr; }

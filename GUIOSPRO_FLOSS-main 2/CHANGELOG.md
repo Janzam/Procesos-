@@ -40,6 +40,7 @@ esta versión conservan exactamente la misma recomendación A/B/C.
 | Funcionalidad | Detalle |
 |---|---|
 | **Paso "Software a evaluar"** | Nuevo primer paso del asistente: nombre, versión, tipo de licencia, proveedor, organización y evaluador. Todos opcionales; componen el nombre de la evaluación |
+| **Datos del software persistidos** | Los seis campos se guardan como columnas propias de la evaluación (migración `0002`), no solo fundidos en el nombre. El historial los muestra en una ficha y el listado permite filtrar por organización y licencia |
 | **Dashboard** | Nueva sección con métricas agregadas de todas las evaluaciones: banner de foco, KPIs y gráficos de veredictos y factores más problemáticos. Endpoint `GET /api/evaluaciones/dashboard/` |
 | **Exportación PDF** | Implementada en el frontend con jsPDF: cabecera, recomendación, tabla de factores y tabla FODA de 4 columnas, con paginación |
 | **Exportación Excel** | Implementada en el frontend con ExcelJS: tres hojas con formato, autofiltro, paneles fijos y colores por categoría |

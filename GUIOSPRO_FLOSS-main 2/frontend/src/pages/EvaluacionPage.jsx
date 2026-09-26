@@ -117,7 +117,18 @@ export default function EvaluacionPage() {
             : [],
         }
       })
-      const res = await crearEvaluacion({ nombre: nombreEvaluacion(software), factores: factoresPayload })
+      // Los datos del software se envían por separado además del nombre compuesto,
+      // para que queden consultables en el historial y no solo como texto (RF-02)
+      const res = await crearEvaluacion({
+        nombre: nombreEvaluacion(software),
+        software_nombre: software.nombre,
+        version: software.version,
+        licencia: software.licencia,
+        proveedor: software.proveedor,
+        organizacion: software.organizacion,
+        evaluador: software.evaluador,
+        factores: factoresPayload,
+      })
       setResultado(res.resultado)
       setStep(3)
     } catch (e) {
