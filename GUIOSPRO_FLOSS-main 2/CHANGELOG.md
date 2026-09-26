@@ -31,6 +31,7 @@ esta versión conservan exactamente la misma recomendación A/B/C.
 | 10 | `calcular_ponderacion_global` devolvía **0.0** con lista vacía, valor que al clasificarse habría dado siempre Debilidad/Amenaza | Devuelve `None` |
 | 11 | **N+1 consultas**: una consulta de subfactores por cada factor y la dimensión sin `select_related` | Una sola consulta agrupada |
 | 12 | El **alcance dejó de mostrarse** en el paso Factores. El rediseño `e45fcde` eliminó la rama que lo pintaba como texto en los 17 factores que no son «Ambos»; el dato seguía usándose en el cálculo, pero el decisor ya no podía saber por qué un factor acababa en Debilidad y no en Amenaza | Se muestra de nuevo junto a la importancia sugerida. En *Soporte* se mantiene el desplegable, por ser el único que el decisor debe elegir |
+| 13 | **La descarga del PDF y del Excel quedaba bloqueada por el navegador.** El módulo de exportación (~1,3 MB) se cargaba al pulsar el botón; mientras se descargaba expiraba la activación transitoria del gesto y el navegador rechazaba el archivo por no considerarlo iniciado por el usuario | El módulo se precarga al entrar en la pantalla de Resultados, de modo que al pulsar ya está disponible y la descarga se dispara dentro del gesto |
 
 ---
 

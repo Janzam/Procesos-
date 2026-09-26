@@ -3,11 +3,20 @@ import { useState, useEffect } from 'react'
 import FodaFlower from '../FodaFlower.jsx'
 import RadarDimensiones from '../RadarDimensiones.jsx'
 
-// Las librerías de exportación (jsPDF, SheetJS) se cargan bajo demanda al pulsar el botón
+// Las librerías de exportación (jsPDF, ExcelJS) pesan ~700 KB y se cargan aparte
+// del arranque. Se precargan al entrar en Resultados: si el navegador tuviera que
+// descargarlas durante el clic, perdería la activación transitoria del gesto y
+// bloquearía el archivo por considerar que la descarga no la pidió el usuario.
+let moduloExportar = null
+function precargarExportacion() {
+  moduloExportar = moduloExportar || import('../../utils/exportar.js')
+  return moduloExportar
+}
+
 async function exportar(tipo, nombre, resultado) {
-  const mod = await import('../../utils/exportar.js')
+  const mod = await precargarExportacion()
   if (tipo === 'pdf') mod.exportarPDF(nombre, resultado)
-  else mod.exportarExcel(nombre, resultado)
+  else await mod.exportarExcel(nombre, resultado)
 }
 
 // Preferencia de mostrar/ocultar el panel de gráficos (se recuerda entre sesiones)
@@ -44,6 +53,9 @@ export default function StepResultados({ resultado, nombre }) {
   useEffect(() => {
     try { localStorage.setItem(GRAFICOS_KEY, mostrarGraficos ? 'si' : 'no') } catch { /* ignorar */ }
   }, [mostrarGraficos])
+
+  // Se empieza a traer el módulo de exportación en cuanto se ven los resultados
+  useEffect(() => { precargarExportacion() }, [])
 
   if (!resultado) return <p style={{ color: 'var(--text-muted)' }}>Calculando resultado...</p>
   const { factores, recomendacion } = resultado
