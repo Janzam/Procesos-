@@ -4,6 +4,31 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v3.1.3 — El salto automático a resultados ya no pierde la última respuesta (2026-10-12)
+
+### 🐞 «Hay 1 subfactor sin responder» con todo respondido
+
+Al contestar la última pregunta pendiente, el paso Subfactores espera 750 ms y salta
+solo a resultados. Ese salto llamaba al `onCompletado` capturado en el momento del
+clic, es decir, al `handleCalcular` del render **anterior**, cuyo estado todavía no
+incluía la respuesta recién dada. Consecuencias:
+
+- El aviso previo al cálculo contaba un subfactor sin responder que sí estaba
+  respondido.
+- Si el decisor aceptaba continuar, esa última respuesta se enviaba como «No cumple
+  el requisito» (valor 1) y con procedencia «manual», fuera cual fuera la que había
+  elegido. El resultado guardado podía ser distinto del que correspondía.
+
+Pulsar el botón «Ver Resultados» a mano no tenía el problema, porque usa el
+`handleCalcular` del render en curso.
+
+Ahora el temporizador llama siempre al `onCompletado` más reciente, de modo que el
+cálculo ve todas las respuestas. Verificado con un padre que cuenta pendientes con su
+propio estado: antes del arreglo veía 1 pendiente y 2 respuestas de 3; ahora ve 0 y
+las 3.
+
+---
+
 ## v3.1.2 — Elegir el alcance antes que la importancia ya no rompe el guardado (2026-10-12)
 
 ### 🐞 Un factor «Ambos» con alcance elegido pero sin importancia

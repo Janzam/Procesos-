@@ -45,6 +45,14 @@ export default function StepSubfactores({
   const timerRef = useRef(null)
   const panelRef = useRef(null)
 
+  // El salto a resultados se dispara desde un temporizador, cuando el padre ya ha
+  // vuelto a renderizar con la última respuesta. Si llamara al onCompletado
+  // capturado al pulsar, ejecutaría el cálculo con el estado anterior: daría por
+  // sin responder justo esa última pregunta y la guardaría como «No cumple». La
+  // referencia apunta siempre al onCompletado del render más reciente.
+  const onCompletadoRef = useRef(onCompletado)
+  useEffect(() => { onCompletadoRef.current = onCompletado })
+
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
   const factor = relevantes.find(f => f.id === selId) || relevantes[0]
@@ -84,7 +92,7 @@ export default function StepSubfactores({
     if (!siguiente) {
       if (!onCompletado) return
       setSaltandoA(FIN)
-      timerRef.current = setTimeout(() => { setSaltandoA(null); onCompletado() }, 750)
+      timerRef.current = setTimeout(() => { setSaltandoA(null); onCompletadoRef.current?.() }, 750)
       return
     }
 
