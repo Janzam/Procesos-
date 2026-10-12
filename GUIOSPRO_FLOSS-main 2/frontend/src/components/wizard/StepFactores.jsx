@@ -2,12 +2,13 @@
 import { calcularIR } from '../../api/guiosad.js'
 
 const NIVELES = ['Irrelevante', 'Opcional', 'Importante', 'Fundamental']
+const CORTOS = ['Irrelev.', 'Opcional', 'Important.', 'Fundam.']
 // Tono del botón seleccionado según el nivel elegido (rojo → verde).
 // Son clases propias del selector: la tabla de resultados mantiene su gris
 // para "Irrelevante", donde el rojo daría a entender un problema.
 const SEG_CLASS = ['seg-n1', 'seg-n2', 'seg-n3', 'seg-n4']
 
-// Cada dimensión tiene su propio color de cabecera
+// Cada dimensión tiene su propio color
 const DIM_KEY = {
   'Tecnológica':    'tec',
   'Organizacional': 'org',
@@ -28,40 +29,55 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
   const idDe = f => evaluacion[f.id]?.importancia_decisor ?? 1
   const ajustados = factores.filter(f => evaluacion[f.id]).length
   const fuera = factores.filter(f => !calcularIR(matrizIR, f.importancia_sugerida, idDe(f)).relevante).length
+  const pct = factores.length ? Math.round((ajustados / factores.length) * 100) : 0
 
   return (
     <div>
-      <div className="paso-aviso">
-        <span><strong>{ajustados}</strong> de {factores.length} factores ajustados</span>
-        {fuera > 0 && <span className="paso-aviso-muted">{fuera} no se evaluarán por tener importancia Irrelevante</span>}
+      <div className="paso-barra">
+        <div className="paso-barra-texto">
+          <strong>{ajustados}</strong> de {factores.length} factores ajustados
+          {fuera > 0 && (
+            <span className="paso-barra-nota">
+              {fuera} quedarán fuera de la evaluación por resultar irrelevantes
+            </span>
+          )}
+        </div>
+        <div className="paso-barra-pista"><span style={{ width: pct + '%' }} /></div>
       </div>
 
       <div className="dim-grid">
-        {dims.map((dim, di) => {
+        {dims.map(dim => {
           const key = DIM_KEY[dim] || 'tec'
           const dimFactores = factores.filter(f => f.dimension_nombre === dim)
           const hechos = dimFactores.filter(f => evaluacion[f.id]).length
           return (
-            <div className="card" key={dim} style={{ animationDelay: `${di * 0.06}s` }}>
-              <div className={`card-header hdr-${key}`}>
-                <div className="card-header-badge">{di + 1}</div>
-                <span className="card-header-title">Dimensión {dim}</span>
-                <span className="card-header-count">{hechos}/{dimFactores.length}</span>
-              </div>
+            <section className={`dim-card dim-${key}`} key={dim}>
+              <header className="dim-cab">
+                <span className="dim-punto" aria-hidden="true" />
+                <h3 className="dim-titulo">{dim}</h3>
+                <span className="dim-cuenta">{hechos}<small>/{dimFactores.length}</small></span>
+              </header>
 
-              <div className="card-body">
+              <div className="dim-cuerpo">
                 {dimFactores.map(f => {
                   const idVal = idDe(f)
                   // Sin elección del decisor se usa el mínimo (1). Se muestra en gris
                   // neutro, no como si el usuario hubiera elegido "Irrelevante".
                   const tocado = Boolean(evaluacion[f.id])
+                  const ir = calcularIR(matrizIR, f.importancia_sugerida, idVal)
                   return (
-                    <div className="fac-row" key={f.id}>
-                      <span className="fac-nombre">{f.nombre}</span>
-                      <span className="fac-sugerida">
-                        La guía sugiere: {NIVELES[f.importancia_sugerida - 1]}
-                        {f.alcance !== 'Ambos' && ` · Alcance ${f.alcance.toLowerCase()}`}
-                      </span>
+                    <article className={`fac-row${tocado ? ' fac-row-hecho' : ''}`} key={f.id}>
+                      <div className="fac-cab">
+                        <span className="fac-nombre">{f.nombre}</span>
+                        <span className="fac-chips">
+                          <span className="fac-chip">
+                            Guía: <b>{NIVELES[f.importancia_sugerida - 1]}</b>
+                          </span>
+                          {f.alcance !== 'Ambos' && (
+                            <span className="fac-chip">{f.alcance}</span>
+                          )}
+                        </span>
+                      </div>
 
                       <div className="fac-control">
                         <div className="segmented segmented-fac" role="group" aria-label={`Importancia de ${f.nombre}`}>
@@ -71,13 +87,14 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
                               type="button"
                               className={`seg-btn${idVal === i + 1 ? (tocado ? ` seg-activo ${SEG_CLASS[i]}` : ' seg-defecto') : ''}`}
                               aria-pressed={tocado && idVal === i + 1}
-                              title={!tocado && i === 0 ? 'Valor por defecto: todavía no ha elegido' : undefined}
+                              title={!tocado && i === 0 ? 'Valor por defecto: todavía no ha elegido' : nivel}
                               onClick={() => handleNivel(f.id, i + 1)}
                             >
-                              {nivel}
+                              {CORTOS[i]}
                             </button>
                           ))}
                         </div>
+
                         {f.alcance === 'Ambos' && (
                           <select
                             className="alcance-select"
@@ -90,11 +107,21 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
                           </select>
                         )}
                       </div>
-                    </div>
+
+                      {/* En qué queda el factor al combinar lo que sugiere la guía con lo
+                          que elige el decisor. Es el paso 2 del método, visible mientras
+                          se responde en vez de solo al final. */}
+                      <div className="fac-ir">
+                        <span className="fac-ir-flecha" aria-hidden="true">→</span>
+                        {ir.relevante
+                          ? <>Se evaluará como <span className={`badge badge-ir-${ir.etiqueta.toLowerCase()}`}>{ir.etiqueta}</span></>
+                          : <span className="fac-ir-fuera">No se evaluará: resulta irrelevante</span>}
+                      </div>
+                    </article>
                   )
                 })}
               </div>
-            </div>
+            </section>
           )
         })}
       </div>

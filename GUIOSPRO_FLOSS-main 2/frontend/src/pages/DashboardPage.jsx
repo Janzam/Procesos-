@@ -1,60 +1,135 @@
-// origen: nuevo | panel resumido con lo esencial de todas las evaluaciones (GET /api/evaluaciones/dashboard/)
+// Panel resumido de todas las evaluaciones (GET /api/evaluaciones/dashboard/)
+//
+// Los gráficos son HTML y CSS, no una librería: son tres formas sencillas —una
+// barra apilada, unas barras de comparación y unos medidores— y así cada valor
+// lleva su etiqueta visible, sin depender de un tooltip para poder leerse.
 import { useState, useEffect } from 'react'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
-} from 'recharts'
 import { getDashboard } from '../api/guiosad.js'
 
-const REC_INFO = {
-  A: { label: 'A · Adoptar',              color: 'var(--green)' },
-  B: { label: 'B · Adoptar con reservas', color: 'var(--amber)' },
-  C: { label: 'C · No adoptar todavía',   color: 'var(--red)' },
+const REC = {
+  A: { letra: 'A', corto: 'Adoptar',              clase: 'v-a' },
+  B: { letra: 'B', corto: 'Adoptar con reservas', clase: 'v-b' },
+  C: { letra: 'C', corto: 'No adoptar todavía',   clase: 'v-c' },
+}
+const ORDEN = ['A', 'B', 'C']
+
+const DIM_CLASE = { 'Tecnológica': 'dim-tec', 'Organizacional': 'dim-org', 'Económica': 'dim-eco' }
+
+function pct(parte, total) {
+  return total ? Math.round((parte / total) * 100) : 0
 }
 
-const TOOLTIP_STYLE = {
-  contentStyle: { background: 'var(--bg-card)', border: '1px solid var(--border-glass)', borderRadius: 8, fontSize: 12, color: 'var(--text-primary)' },
-  itemStyle: { color: 'var(--text-primary)' },
-  labelStyle: { color: 'var(--text-primary)', fontWeight: 600 },
-  cursor: { fill: 'var(--bg-hover)' },
-}
-const TICK = { fontSize: 11.5, fill: 'var(--text-secondary)' }
-
-function KpiTile({ label, value, sub, accent }) {
+// ── Cifra destacada ─────────────────────────────────────────────────
+function Kpi({ etiqueta, valor, pie, tono }) {
   return (
-    <div className="card kpi-tile">
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value" style={accent ? { color: accent } : undefined}>{value}</div>
-      {sub && <div className="kpi-sub">{sub}</div>}
+    <div className={`kpi${tono ? ` kpi-${tono}` : ''}`}>
+      <div className="kpi-etiqueta">{etiqueta}</div>
+      <div className="kpi-valor">{valor}</div>
+      {pie && <div className="kpi-pie">{pie}</div>}
     </div>
   )
 }
 
-function ChartCard({ title, subtitle, children, height = 200 }) {
+// ── Reparto de veredictos: una sola barra de 100 % ──────────────────
+// Parte-de-un-todo con tres clases ordenadas. Cada segmento lleva su cifra y
+// hay leyenda, de modo que el color nunca es el único portador del dato.
+function Veredictos({ rec, total }) {
+  const visibles = ORDEN.filter(k => rec[k] > 0)
   return (
-    <div className="card" style={{ padding: '16px 18px' }}>
-      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{title}</div>
-      {subtitle && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{subtitle}</div>}
-      <div style={{ marginTop: 12 }}>
-        <ResponsiveContainer width="100%" height={height}>{children}</ResponsiveContainer>
+    <section className="panel">
+      <header className="panel-cab">
+        <h3 className="panel-titulo">Reparto de veredictos</h3>
+        <span className="panel-apunte">{total} evaluaciones</span>
+      </header>
+
+      <div className="apilada" role="img"
+           aria-label={ORDEN.map(k => `${REC[k].corto}: ${rec[k]}`).join('. ')}>
+        {visibles.map(k => (
+          <div
+            key={k}
+            className={`apilada-seg ${REC[k].clase}`}
+            style={{ flexGrow: rec[k] }}
+            title={`${REC[k].corto}: ${rec[k]} de ${total}`}
+          >
+            <span className="apilada-cifra">{pct(rec[k], total)} %</span>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <ul className="leyenda">
+        {ORDEN.map(k => (
+          <li key={k} className={rec[k] ? '' : 'leyenda-cero'}>
+            <span className={`leyenda-punto ${REC[k].clase}`} aria-hidden="true" />
+            <span className="leyenda-letra">{REC[k].letra}</span>
+            <span className="leyenda-texto">{REC[k].corto}</span>
+            <span className="leyenda-valor">{rec[k]}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
-// Barras horizontales: una categoría por fila, nombre en el eje y valor al final.
-// `width`/`height` los inyecta ResponsiveContainer y deben llegar al BarChart.
-function BarrasHorizontales({ data, colorDe, ancho = 120, width, height }) {
+// ── Factores problemáticos: énfasis en el primero ───────────────────
+// Son categorías sin orden natural, así que no se tiñen por magnitud —eso
+// duplicaría en color lo que la longitud ya dice—. Se resalta el primero,
+// que es el que la cabecera señala, y el resto queda en gris de contexto.
+function Problematicos({ datos, total }) {
+  if (!datos.length) return null
+  const max = Math.max(...datos.map(d => d.veces))
   return (
-    <BarChart width={width} height={height} data={data} layout="vertical" margin={{ top: 4, right: 36, bottom: 0, left: 0 }} barCategoryGap={8}>
-      <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
-      <XAxis type="number" allowDecimals={false} tick={TICK} axisLine={false} tickLine={false} />
-      <YAxis type="category" dataKey="label" width={ancho} tick={TICK} axisLine={false} tickLine={false} />
-      <Tooltip {...TOOLTIP_STYLE} formatter={v => [v, 'Evaluaciones']} />
-      <Bar dataKey="value" barSize={14} radius={[0, 4, 4, 0]} isAnimationActive={false}>
-        {data.map((d, i) => <Cell key={i} fill={colorDe(d, i)} />)}
-        <LabelList dataKey="value" position="right" style={{ fontSize: 11.5, fontWeight: 600, fill: 'var(--text-primary)' }} />
-      </Bar>
-    </BarChart>
+    <section className="panel">
+      <header className="panel-cab">
+        <h3 className="panel-titulo">Factores que más fallan</h3>
+        <span className="panel-apunte">veces clasificados como Debilidad o Amenaza</span>
+      </header>
+      <ul className="barras">
+        {datos.map((d, i) => (
+          <li key={d.factor_id ?? d.factor_nombre} className={i === 0 ? 'barra-foco' : ''}>
+            <span className="barra-nombre" title={d.factor_nombre}>{d.factor_nombre}</span>
+            <span className="barra-pista">
+              <span className="barra-fill" style={{ width: `${(d.veces / max) * 100}%` }} />
+            </span>
+            <span className="barra-valor">{d.veces}<small>/{total}</small></span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+// ── Ponderación por dimensión: un medidor por dimensión ─────────────
+function Dimensiones({ datos }) {
+  if (!datos.length) return null
+  return (
+    <section className="panel">
+      <header className="panel-cab">
+        <h3 className="panel-titulo">Cumplimiento por dimensión</h3>
+        <span className="panel-apunte">ponderación media sobre 4 · umbral 3,0</span>
+      </header>
+      <ul className="medidores">
+        {datos.map(d => {
+          const p = (d.ponderacion / 4) * 100
+          return (
+            <li key={d.dimension} className={DIM_CLASE[d.dimension] || 'dim-tec'}>
+              <div className="medidor-cab">
+                <span className="medidor-nombre">
+                  <span className="medidor-punto" aria-hidden="true" />{d.dimension}
+                </span>
+                <span className={`medidor-valor${d.ponderacion >= 3 ? ' medidor-ok' : ' medidor-bajo'}`}>
+                  {d.ponderacion.toFixed(2)}
+                </span>
+              </div>
+              <div className="medidor-pista">
+                <span className="medidor-fill" style={{ width: `${p}%` }} />
+                <span className="medidor-umbral" style={{ left: '75%' }} aria-hidden="true" />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="panel-nota">La marca vertical señala el umbral de 3,0 a partir del cual un factor resulta favorable.</p>
+    </section>
   )
 }
 
@@ -63,101 +138,121 @@ export default function DashboardPage({ onNavigate }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    getDashboard().then(setData).catch(() => setError('No se pudo cargar el dashboard. Verifique que el backend esté en ejecución.'))
+    getDashboard()
+      .then(setData)
+      .catch(() => setError('No se pudo cargar el dashboard. Verifique que el backend esté en ejecución.'))
   }, [])
 
   if (error) return <div className="error-msg">{error}</div>
-  if (!data) return <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando métricas…</p>
+  if (!data) return <p className="an-vacio">Cargando métricas…</p>
 
   const total = data.total_evaluaciones
   if (total === 0) {
     return (
       <div>
-        <h1 className="page-title">Dashboard</h1>
+        <h1 className="page-title">Panel</h1>
         <p className="page-subtitle">Resumen de las evaluaciones realizadas.</p>
         <div className="empty-state card" style={{ minHeight: 280 }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M3 3v18h18M7 14l4-4 4 4 5-6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+            <path d="M3 3v18h18M7 14l4-4 4 4 5-6"/>
+          </svg>
           <p>Todavía no hay evaluaciones. Cree la primera para ver métricas aquí.</p>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => onNavigate('evaluacion')}>Nueva evaluación</button>
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => onNavigate('evaluacion')}>
+            Nueva evaluación
+          </button>
         </div>
       </div>
     )
   }
 
   const rec = data.recomendaciones
-  const pctA = Math.round((rec.A / total) * 100)
-  const recData  = ['A', 'B', 'C'].map(k => ({ key: k, label: REC_INFO[k].label, value: rec[k] }))
-  const probData = data.problemas_frecuentes.slice(0, 5).map(p => ({ label: p.factor_nombre, value: p.veces }))
-
-  // Foco de atención: balance FODA y factor más problemático
-  const fodaTotal = Object.values(data.foda).reduce((s, v) => s + v, 0)
-  const negativos = (data.foda.Debilidad || 0) + (data.foda.Amenaza || 0)
-  const pctNeg = fodaTotal ? Math.round((negativos / fodaTotal) * 100) : 0
-  const topProblema = data.problemas_frecuentes[0]
-  const dimDebil = [...data.ponderacion_por_dimension].sort((a, b) => a.ponderacion - b.ponderacion)[0]
-  const nivel = pctNeg >= 60 ? 'c' : pctNeg >= 30 ? 'b' : 'a'
-  const titularFoco = {
-    c: `El ${pctNeg}% de los factores evaluados son Debilidades o Amenazas`,
-    b: `Situación intermedia: ${pctNeg}% de factores en Debilidad o Amenaza`,
-    a: `Buen panorama: solo el ${pctNeg}% de factores en Debilidad o Amenaza`,
-  }[nivel]
   const pond = data.ponderacion_promedio
 
-  return (
-    <div>
-      <h1 className="page-title">Dashboard</h1>
-      <p className="page-subtitle">Resumen de las evaluaciones realizadas.</p>
+  // El titular lo manda el reparto de veredictos, que es lo que el decisor
+  // obtiene. Antes lo mandaba el porcentaje de factores desfavorables, y eso
+  // producía titulares contradictorios: «buen panorama» con el 100 % de las
+  // evaluaciones en C, porque basta UN factor importante desfavorable para que
+  // la metodología emita esa recomendación.
+  const nivel = pct(rec.C, total) >= 50 ? 'c' : pct(rec.A, total) >= 50 ? 'a' : 'b'
+  const titular = {
+    c: `${rec.C} de ${total} evaluaciones terminan en «No adoptar todavía»`,
+    b: `La mayoría de las evaluaciones quedan en «Adoptar con reservas»`,
+    a: `${rec.A} de ${total} evaluaciones recomiendan adoptar`,
+  }[nivel]
 
-      {/* Foco de atención */}
-      <div className={`rec-banner rec-banner-${nivel} foco-banner`}>
-        <div className={`rec-badge-circle rec-badge-${nivel}`}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
-            {nivel === 'a'
-              ? <path d="M20 6L9 17l-5-5"/>
-              : <path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/>}
-          </svg>
+  const fodaTotal = Object.values(data.foda).reduce((s, v) => s + v, 0)
+  const negativos = (data.foda.Debilidad || 0) + (data.foda.Amenaza || 0)
+  const pctNeg = pct(negativos, fodaTotal)
+  const topProblema = data.problemas_frecuentes[0]
+  const dimDebil = [...data.ponderacion_por_dimension].sort((a, b) => a.ponderacion - b.ponderacion)[0]
+
+  return (
+    <div className="dash">
+      <header className="dash-cab">
+        <div>
+          <h1 className="page-title">Panel</h1>
+          <p className="page-subtitle" style={{ marginBottom: 0 }}>
+            Resumen de las {total} evaluaciones guardadas.
+          </p>
         </div>
-        <div style={{ flex: 1 }}>
-          <div className="rec-title" style={{ fontSize: 18 }}>{titularFoco}</div>
-          <div className="foco-chips">
+        <button className="btn btn-outline btn-xs" onClick={() => onNavigate('historial')}>
+          Ver historial
+        </button>
+      </header>
+
+      {/* Titular */}
+      <section className={`titular titular-${nivel}`}>
+        <div className="titular-marca" aria-hidden="true">
+          {nivel === 'a' ? 'A' : nivel === 'b' ? 'B' : 'C'}
+        </div>
+        <div className="titular-cuerpo">
+          <h2 className="titular-texto">{titular}</h2>
+          <p className="titular-lectura">
+            Solo el <strong>{pctNeg} %</strong> de los factores evaluados resultan Debilidad o Amenaza,
+            pero basta uno de ellos en un factor importante para que la metodología emita una C.
+          </p>
+          <div className="titular-chips">
             {topProblema && (
-              <span className="foco-chip">
-                <strong>Factor a vigilar:</strong> {topProblema.factor_nombre} — problemático en {topProblema.veces} de {total} evaluaciones
+              <span className="titular-chip">
+                Factor a vigilar <b>{topProblema.factor_nombre}</b> · {topProblema.veces} de {total}
               </span>
             )}
             {dimDebil && (
-              <span className="foco-chip">
-                <strong>Dimensión más débil:</strong> {dimDebil.dimension} ({dimDebil.ponderacion.toFixed(2)} / 4)
+              <span className="titular-chip">
+                Dimensión más débil <b>{dimDebil.dimension}</b> · {dimDebil.ponderacion.toFixed(2)} / 4
               </span>
             )}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* KPIs */}
-      <div className="kpi-grid kpi-grid-3">
-        <KpiTile label="Evaluaciones" value={total} sub="guardadas en la base de datos" />
-        <KpiTile label="Recomendación A (adoptar)" value={`${pctA}%`} sub={`${rec.A} de ${total} evaluaciones`} accent="var(--green)" />
-        <KpiTile
-          label="Ponderación media"
-          value={pond !== null ? `${pond} / 4` : '—'}
-          sub="cumplimiento de subfactores"
-          accent={pond !== null ? (pond >= 3 ? 'var(--green)' : pond >= 2 ? 'var(--amber)' : 'var(--red)') : undefined}
+      {/* Cifras */}
+      <div className="kpi-fila">
+        <Kpi etiqueta="Evaluaciones" valor={total} pie="guardadas en la base de datos" />
+        <Kpi
+          etiqueta="Recomiendan adoptar"
+          valor={`${pct(rec.A, total)} %`}
+          pie={`${rec.A} de ${total}`}
+          tono={rec.A ? 'ok' : 'cero'}
+        />
+        <Kpi
+          etiqueta="Ponderación media"
+          valor={pond !== null ? pond.toFixed(2) : '—'}
+          pie="sobre 4 · umbral 3,0"
+          tono={pond === null ? undefined : pond >= 3 ? 'ok' : 'bajo'}
+        />
+        <Kpi
+          etiqueta="Factores relevantes"
+          valor={data.factores_relevantes_promedio}
+          pie="de media por evaluación"
         />
       </div>
 
-      {/* Gráficos */}
-      <div className="dash-grid-2">
-        <ChartCard title="Veredictos" subtitle="Evaluaciones por recomendación final" height={150}>
-          <BarrasHorizontales data={recData} colorDe={d => REC_INFO[d.key].color} ancho={170} />
-        </ChartCard>
-        <ChartCard title="Factores a mejorar" subtitle="Veces clasificados como Debilidad o Amenaza (top 5)" height={Math.max(150, probData.length * 30 + 30)}>
-          <BarrasHorizontales data={probData} colorDe={() => 'var(--brand)'} ancho={190} />
-        </ChartCard>
-      </div>
+      <Veredictos rec={rec} total={total} />
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn btn-outline btn-xs" onClick={() => onNavigate('historial')}>Ver historial completo →</button>
+      <div className="dash-dos">
+        <Problematicos datos={data.problemas_frecuentes.slice(0, 5)} total={total} />
+        <Dimensiones datos={data.ponderacion_por_dimension} />
       </div>
     </div>
   )

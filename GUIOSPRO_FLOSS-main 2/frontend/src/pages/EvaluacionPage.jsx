@@ -1,6 +1,9 @@
 // origen: main.py (flujo 6 pasos) | cambio: wizard con Stepper visual y layout moderno
 import { useState, useEffect } from 'react'
-import { getFactores, getMatrizIR, crearEvaluacion, calcularIR } from '../api/guiosad.js'
+import {
+  getFactores, getMatrizIR, crearEvaluacion, actualizarEvaluacion,
+  getEvaluacion, calcularIR, getEstadoIA,
+} from '../api/guiosad.js'
 import Stepper from '../components/Stepper.jsx'
 import StepSoftware, { SOFTWARE_VACIO } from '../components/wizard/StepSoftware.jsx'
 import StepFactores from '../components/wizard/StepFactores.jsx'
@@ -33,22 +36,31 @@ function leerEstadoGuardado() {
   }
 }
 
-export default function EvaluacionPage() {
+export default function EvaluacionPage({ editarId, onFinEdicion }) {
   const [guardado] = useState(leerEstadoGuardado)
   const [step, setStep] = useState(guardado?.step ?? 0)
   const [factores, setFactores] = useState([])
   const [software, setSoftware] = useState(guardado?.software ?? SOFTWARE_VACIO)
   const [evFactores, setEvFactores] = useState(guardado?.evFactores ?? {})
   const [evSubfactores, setEvSubfactores] = useState(guardado?.evSubfactores ?? {})
+  // Procedencia de cada respuesta (RF-19): manual o sugerencia aceptada.
+  const [evOrigenes, setEvOrigenes] = useState(guardado?.evOrigenes ?? {})
+  const [iaDisponible, setIaDisponible] = useState(false)
+  // Id de la evaluación que se está editando. Mientras no sea nulo, guardar
+  // reemplaza esa evaluación en vez de crear una nueva.
+  const [editando, setEditando] = useState(null)
   const [resultado, setResultado] = useState(guardado?.resultado ?? null)
+  // Id de la evaluación guardada: lo necesita el panel de análisis para
+  // recalcular sobre ella sin volver a enviar las respuestas.
+  const [evaluacionId, setEvaluacionId] = useState(guardado?.evaluacionId ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, software, evFactores, evSubfactores, resultado }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId }))
     } catch { /* modo privado o sin espacio */ }
-  }, [step, software, evFactores, evSubfactores, resultado])
+  }, [step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId])
 
   const [cargandoFactores, setCargandoFactores] = useState(true)
   const [matrizIR, setMatrizIR] = useState(null)
@@ -76,6 +88,38 @@ export default function EvaluacionPage() {
 
   useEffect(() => { cargarFactores() }, [])
 
+  // Al llegar desde el historial con una evaluación que editar, sus respuestas
+  // sustituyen al borrador que hubiera en curso.
+  useEffect(() => {
+    if (!editarId) return
+    let vigente = true
+    getEvaluacion(editarId).then(ev => {
+      if (!vigente) return
+      const r = ev.respuestas || {}
+      setSoftware({ ...SOFTWARE_VACIO, ...Object.fromEntries(
+        Object.entries(ev.software || {}).map(([k, v]) => [k === 'software_nombre' ? 'nombre' : k, v]),
+      ) })
+      setEvFactores(Object.fromEntries(
+        Object.entries(r.factores || {}).map(([id, f]) => [id, { ...f }]),
+      ))
+      setEvSubfactores(Object.fromEntries(
+        Object.entries(r.subfactores || {}).map(([id, v]) => [id, v]),
+      ))
+      setEvOrigenes(r.origenes || {})
+      setResultado(ev.resultado)
+      setEvaluacionId(ev.id)
+      setEditando(ev.id)
+      setStep(1)
+    }).catch(() => setError('No se pudo cargar la evaluación para editarla.'))
+    return () => { vigente = false }
+  }, [editarId])
+
+  // El asistente es opcional: si no hay credencial configurada, la interfaz no lo
+  // ofrece en vez de mostrar un botón que siempre falla.
+  useEffect(() => {
+    getEstadoIA().then(e => setIaDisponible(Boolean(e.disponible))).catch(() => setIaDisponible(false))
+  }, [])
+
   // Subfactores sin responder de los factores que sí entrarán en el cálculo
   function contarPendientes() {
     return factores.reduce((n, f) => {
@@ -87,6 +131,8 @@ export default function EvaluacionPage() {
   }
 
   async function handleCalcular() {
+    if (loading) return   // evita que el salto automático y el botón disparen dos cálculos
+
     // El valor por defecto de un subfactor sin responder es 1 ("No cumple").
     // No se cambia el cálculo, pero se avisa antes en vez de aplicarlo en silencio.
     const pendientes = contarPendientes()
@@ -113,13 +159,17 @@ export default function EvaluacionPage() {
           // mismo valor en lugar de null (que el backend trataba como Externo).
           alcance_elegido: f.alcance === 'Ambos' ? (ev.alcance_elegido || 'Interno') : null,
           subfactores: ir.relevante
-            ? f.subfactores.map(s => ({ subfactor_id: s.id, valor: evSubfactores[s.id] ?? 1 }))
+            ? f.subfactores.map(s => ({
+                subfactor_id: s.id,
+                valor: evSubfactores[s.id] ?? 1,
+                origen: evOrigenes[s.id] === 'sugerido_ia' ? 'sugerido_ia' : 'manual',
+              }))
             : [],
         }
       })
       // Los datos del software se envían por separado además del nombre compuesto,
       // para que queden consultables en el historial y no solo como texto (RF-02)
-      const res = await crearEvaluacion({
+      const payload = {
         nombre: nombreEvaluacion(software),
         software_nombre: software.nombre,
         version: software.version,
@@ -128,8 +178,12 @@ export default function EvaluacionPage() {
         organizacion: software.organizacion,
         evaluador: software.evaluador,
         factores: factoresPayload,
-      })
+      }
+      const res = editando
+        ? await actualizarEvaluacion(editando, payload)
+        : await crearEvaluacion(payload)
       setResultado(res.resultado)
+      setEvaluacionId(res.id)
       setStep(3)
     } catch (e) {
       setError(e.message)
@@ -144,11 +198,15 @@ export default function EvaluacionPage() {
     setSoftware(SOFTWARE_VACIO)
     setEvFactores({})
     setEvSubfactores({})
+    setEvOrigenes({})
     setResultado(null)
+    setEvaluacionId(null)
+    setEditando(null)
+    onFinEdicion?.()
   }
 
   const subtitles = [
-    'Indique el software que desea evaluar. Todos los campos son opcionales.',
+    'Identifique el producto que va a analizar.',
     'Ajuste la importancia de cada factor según su organización.',
     'Evalúe el cumplimiento de los subfactores para cada factor relevante.',
     'Resultado del análisis FODA y recomendación final.',
@@ -164,6 +222,18 @@ export default function EvaluacionPage() {
         <h1 className="page-title">{titulo}</h1>
         <p className="page-subtitle" style={{ marginBottom: 0 }}>{subtitles[step]}</p>
       </div>
+
+      {editando && (
+        <div className="aviso-edicion">
+          <span>
+            Está <strong>editando una evaluación guardada</strong>. Al terminar, sus respuestas
+            reemplazarán a las anteriores; el historial no creará una entrada nueva.
+          </span>
+          <button className="btn btn-outline btn-xs" onClick={handleNuevaEvaluacion}>
+            Cancelar edición
+          </button>
+        </div>
+      )}
 
       <Stepper steps={STEPS} current={step} />
 
@@ -184,8 +254,21 @@ export default function EvaluacionPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando factores…</p>
         )}
         {step === 1 && !cargandoFactores && <StepFactores factores={factores} evaluacion={evFactores} onChange={setEvFactores} matrizIR={matrizIR} />}
-        {step === 2 && !cargandoFactores && <StepSubfactores factores={factores} evaluacionFactores={evFactores} subfactores={evSubfactores} onChange={setEvSubfactores} matrizIR={matrizIR} />}
-        {step === 3 && <StepResultados resultado={resultado} nombre={nombreEvaluacion(software)} />}
+        {step === 2 && !cargandoFactores && (
+          <StepSubfactores
+            factores={factores}
+            evaluacionFactores={evFactores}
+            subfactores={evSubfactores}
+            onChange={setEvSubfactores}
+            matrizIR={matrizIR}
+            onCompletado={handleCalcular}
+            software={software}
+            origenes={evOrigenes}
+            onOrigenes={setEvOrigenes}
+            iaDisponible={iaDisponible}
+          />
+        )}
+        {step === 3 && <StepResultados resultado={resultado} nombre={nombreEvaluacion(software)} evaluacionId={evaluacionId} />}
       </div>
 
       {step > 0 && (
@@ -209,7 +292,7 @@ export default function EvaluacionPage() {
             )}
             {step === 2 && (
               <button className="btn btn-primary" disabled={loading} onClick={handleCalcular}>
-                {loading ? 'Calculando…' : 'Ver Resultados →'}
+                {loading ? 'Guardando…' : editando ? 'Guardar cambios →' : 'Ver Resultados →'}
               </button>
             )}
             {step === 3 && (

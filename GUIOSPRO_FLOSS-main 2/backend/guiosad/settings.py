@@ -61,7 +61,7 @@ DATABASES = {
 }
 
 LANGUAGE_CODE = 'es-es'
-TIME_ZONE = 'America/Mexico_City'
+TIME_ZONE = 'America/Guayaquil'
 USE_I18N = True
 USE_TZ = True
 
@@ -78,3 +78,9 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+# ── Asistencia con inteligencia artificial (RF-17, RF-18, RF-24) ──
+# El modulo es opcional: sin credencial el sistema funciona igual y la interfaz
+# oculta el asistente (RNF-13). Nunca participa en el calculo.
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
+IA_HABILITADA = config('IA_HABILITADA', default=True, cast=bool)

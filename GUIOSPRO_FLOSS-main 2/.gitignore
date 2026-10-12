@@ -17,10 +17,6 @@ env/
 .coverage
 htmlcov/
 
-# Migraciones generadas en tiempo de ejecución (se generan con makemigrations en Docker)
-# Si decides versionar las migraciones, elimina estas líneas
-*/migrations/
-
 # ─── Node / Frontend ──────────────────────────────────
 node_modules/
 frontend/dist/

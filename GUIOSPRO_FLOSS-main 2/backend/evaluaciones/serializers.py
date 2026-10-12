@@ -6,6 +6,11 @@ from .models import Evaluacion, EvaluacionFactor, EvaluacionSubfactor
 class EvaluacionSubfactorInputSerializer(serializers.Serializer):
     subfactor_id = serializers.IntegerField()
     valor = serializers.IntegerField(min_value=1, max_value=4)
+    # RF-19: lo declara el cliente al confirmar una sugerencia del asistente.
+    origen = serializers.ChoiceField(
+        choices=[c[0] for c in EvaluacionSubfactor.ORIGEN_CHOICES],
+        required=False, default='manual',
+    )
 
 
 class EvaluacionFactorInputSerializer(serializers.Serializer):

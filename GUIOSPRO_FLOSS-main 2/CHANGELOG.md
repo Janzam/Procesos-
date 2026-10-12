@@ -4,6 +4,432 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v3.1.0 — Panel, historial y paso inicial rediseñados (2026-10-05)
+
+### 🐞 Un titular que se contradecía
+
+El panel encabezaba con **«Buen panorama: solo el 15 % de factores en Debilidad o
+Amenaza»** mientras, justo debajo, declaraba que **las 14 evaluaciones terminaban en
+C**. El titular lo calculaba la proporción de factores desfavorables, que no es lo que
+decide el veredicto: basta **un** factor importante desfavorable para que la
+metodología emita una C, así que un porcentaje bajo convive sin problema con un 100 %
+de recomendaciones C.
+
+Ahora el titular lo manda el reparto de veredictos —lo que el decisor realmente
+obtiene— y el porcentaje de factores pasa a ser la explicación de esa aparente
+contradicción, en vez de ocultarla.
+
+### 📊 Panel
+
+Reconstruido con formas elegidas por el trabajo de cada dato, no por decoración:
+
+| Dato | Forma | Por qué |
+|---|---|---|
+| Reparto de veredictos | **barra apilada de 100 %** con leyenda y cifras directas | es parte-de-un-todo con tres clases ordenadas; tres barras sueltas no mostraban el reparto |
+| Factores que más fallan | **barras con énfasis** en el primero, resto en gris | son categorías sin orden natural: teñirlas por magnitud duplicaría en color lo que la longitud ya dice |
+| Cumplimiento por dimensión | **medidores** con la marca del umbral 3,0 | es una razón contra un límite; además, este dato ya venía de la API y no se mostraba en ninguna parte |
+
+Los gráficos pasan a ser HTML y CSS en lugar de una librería: cada valor lleva su
+etiqueta visible, de modo que ninguno depende de un tooltip para poder leerse.
+
+**Sobre los colores.** Validé las paletas con la herramienta de contraste en vez de
+juzgarlas a ojo. El trío de veredictos que ya tenía el sistema resultó ser el mejor
+—separación CVD ΔE 8,1; una alternativa más oscura que probé caía a 1,0, indistinguible
+para un daltónico—, así que **se queda como estaba**. El trío de dimensiones pasa con
+margen justo en modo claro (ΔE 7,8), lo que obliga a que cada color vaya siempre
+acompañado de su etiqueta: así está. Y la rampa secuencial que llegué a validar acabó
+descartada, porque para categorías sin orden es precisamente un error.
+
+### 🗂 Historial
+
+Dejaba media pantalla en blanco con un icono de cursor y escondía la lista tras un
+botón. Ahora:
+
+- Las evaluaciones se ven de entrada como **tarjetas** con su veredicto, fecha y
+  organización, con un filete del color del resultado.
+- **Buscador** por nombre u organización.
+- La cabecera resume el reparto: *«14 guardadas · 0 adoptar, 0 con reservas, 14 posponer»*.
+- Dentro del detalle, una fila para **saltar a otra evaluación** sin volver al listado.
+
+### 📝 Paso inicial
+
+El formulario plano se convierte en dos piezas: un panel que explica para qué sirven
+esos datos —y deja claro que **no intervienen en el cálculo**— y el formulario, agrupado
+en *El producto* y *Quién evalúa*. El panel muestra en vivo **con qué nombre se guardará
+la evaluación**, para que no haya sorpresas en el historial.
+
+### ✅ Verificación
+
+Las tres pantallas se renderizaron y se revisaron en claro y en oscuro antes de darlas
+por buenas, y la aplicación en marcha se comprobó con los componentes reales. Pruebas
+del motor y de extremo a extremo sin fallos.
+
+---
+
+## v3.0.0 — Vuelta a una sola fórmula: la de la tesis (2026-10-05)
+
+### Resumen
+
+**Se retira el criterio de cálculo alternativo introducido en la v2.2.0.** El sistema
+vuelve a implementar los seis pasos de la metodología tal como los define la tesis,
+sin variantes ni parámetros que alteren ningún resultado.
+
+Lo que se conserva —y se refuerza— es el **análisis del resultado**: en vez de comparar
+dos fórmulas, ahora explica por qué el veredicto es el que es sobre la fórmula original.
+
+---
+
+### ⏪ Retirado
+
+| Qué | Dónde |
+|---|---|
+| El criterio `guiosad_v2` y todo el aparato de criterios: `CRITERIOS`, `CRITERIO_POR_DEFECTO`, `obtener_criterio` y los parámetros `criterio` de todas las funciones | `services.py` |
+| `comparar_criterios()` y el endpoint `GET /api/evaluaciones/{id}/comparar/` | motor y API |
+| La columna `criterio` de `evaluaciones_evaluacion` (migración `0006`) | base de datos |
+| El `PATCH` que cambiaba el criterio de una evaluación, y los `?criterio=` de los endpoints | API |
+| Las categorías FODA «No concluyente» y «Sin datos», que solo producía el criterio retirado | motor e interfaz |
+
+Las respuestas almacenadas **no se tocan**: siguen siendo lo único que la base de datos
+guarda, y el resultado se deriva de ellas al consultarlas. Las evaluaciones anteriores
+se resuelven ahora con la fórmula de la tesis, que es lo que hacían antes de la v2.2.0.
+
+Una prueba nueva comprueba que en el motor **no quede ninguna variante de la fórmula**:
+ni un diccionario de criterios, ni una clave del criterio retirado.
+
+---
+
+### 🔎 El análisis, reformulado
+
+Donde antes había un contraste entre dos criterios, ahora hay un **diagnóstico** del
+resultado obtenido. Nuevo `GET /api/evaluaciones/{id}/diagnostico/`:
+
+- **Qué factores causan la recomendación** —los críticos si es C, los opcionales si es B—
+  y, para cada uno, de dónde sale su clasificación: si refleja un incumplimiento
+  comprobado, si descansa en respuestas «Desconozco si cumple», o si el factor se decide
+  con una sola pregunta.
+- **Avisos generales**: cuántas respuestas son «Desconozco» y qué pesan, qué factores
+  desfavorables cuelgan de una única pregunta, cuáles quedan al borde del umbral.
+- **Cobertura** de la evaluación: qué proporción de las respuestas se conoce realmente.
+- Cuando la recomendación es **A**, el diagnóstico no desaparece: pasa a señalar lo que
+  conviene vigilar aunque no impida adoptar.
+
+Nada de esto recalcula nada. Es una lectura de un resultado ya obtenido.
+
+---
+
+### 🎨 Diseño
+
+- **Fuera las tres pestañas del análisis.** Recordaban al prototipo original —que
+  también se organizaba en tres pestañas— y obligaban a ir y venir. Ahora es un informe
+  continuo: cifras de cabecera, factores que lo causan, qué haría falta, respuestas que
+  lo deciden y avisos, todo a la vista y en orden.
+- **Pantalla de evaluación rediseñada.** El índice de factores pasa de lista plana a
+  tarjetas con su estado; el panel gana jerarquía tipográfica; cada criterio se presenta
+  en una rejilla con su número y su escala, que ahora se lee como una escala y no como
+  cuatro botones genéricos.
+- **El diagrama FODA no se ha tocado**, ni su componente ni sus clases.
+
+---
+
+### ✅ Verificación
+
+- `pruebas_motor.py` sin fallos, con la sección del contraste sustituida por la del
+  diagnóstico y una comprobación nueva de que no exista variante de la fórmula.
+- Prueba de extremo a extremo sin fallos: el resultado usa la fórmula de la tesis
+  —«Desconozco» promedia como 2 y arrastra el factor—, el diagnóstico parte de ese
+  resultado, y el endpoint de contraste devuelve 404.
+- `experimento_criterios.py` pasa a `experimento_instrumento.py`: ya no compara dos
+  fórmulas, mide a qué responde la de la tesis. El hallazgo, sobre 270 evaluaciones:
+  basta con que el 30 % de los criterios queden sin conocer para que la recomendación A
+  deje de aparecer, y un producto mediocre y uno malo producen la misma distribución de
+  resultados. Está comentado en el apartado 5 de [PROPUESTA.md](PROPUESTA.md).
+
+---
+
+## v2.4.0 — El criterio propuesto pasa a ser el predeterminado (2026-10-05)
+
+### Resumen
+
+El resultado principal se calcula ahora con el **criterio propuesto**, y el de la tesis
+baja al panel de análisis como contraste permanente. Es la consecuencia de la medición
+de la v2.3.0, no una preferencia: hasta que hubo cifras, el predeterminado era el de la
+tesis porque no había razón documentada para apartarse de él.
+
+**El criterio de la tesis no se ha modificado.** Se calcula en toda evaluación, aparece
+en cada contraste, las pruebas verifican que sigue reproduciendo su matriz de importancia
+relativa y sus textos, y basta un clic para volver a él.
+
+---
+
+### 🔁 Cambio de criterio predeterminado
+
+| | Antes | Ahora |
+|---|---|---|
+| Resultado principal | Criterio de la tesis | **Criterio propuesto** |
+| En el panel de análisis | Criterio propuesto, como alternativa | **Criterio de la tesis**, como referencia |
+
+- `CRITERIO_POR_DEFECTO` pasa a `guiosad_v2`, con la justificación y el enlace a la
+  medición en el propio código. Se añaden las constantes `CRITERIO_TESIS` y
+  `CRITERIO_PROPUESTO` para que ninguna otra parte repita la cadena.
+- El banner de resultados indica con qué criterio se calculó. Antes no hacía falta
+  porque solo había uno por omisión; ahora es un dato que el decisor necesita ver.
+- `comparar_criterios` devuelve `criterio_aplicado` y `criterio_contraste`. El cálculo
+  mantiene el orden canónico —tesis y después propuesto— para que los motivos de cada
+  cambio se expliquen siempre en el mismo sentido; lo que se reordena es la presentación.
+
+### ↩️ Aplicado a lo ya evaluado
+
+Migración `0005`, con marcha atrás. Las evaluaciones guardadas se recalculan con el
+criterio nuevo: **ninguna respuesta se toca**, solo con qué criterio se resuelven. No se
+reescribe una decisión de nadie —ningún decisor había elegido criterio, todas heredaban
+el valor por omisión de la migración `0003`— y volver atrás es un `migrate` o un clic en
+cualquier evaluación.
+
+Comprobado sobre la base de datos en marcha: una evaluación que estaba en C pasó a B al
+migrar, con las mismas respuestas.
+
+### 🐞 Corregido
+
+Cuando **ningún factor cambiaba de clasificación pero la recomendación sí**, el panel
+decía solo «Ningún factor cambia de clasificación» y no explicaba nada más: el caso más
+desconcertante del contraste se quedaba sin explicación. Ahora dice que la diferencia
+está en el último paso y en qué consiste. Es, además, exactamente el caso que se da al
+aplicar el criterio nuevo a evaluaciones ya guardadas.
+
+### 🎨 Diseño
+
+Refresco de la pantalla de resultados y del panel de análisis. **El diagrama FODA se deja
+intacto**, igual que su componente y sus clases.
+
+- **Banner de recomendación** — era un bloque de color saturado con el texto forzado a
+  blanco. Ahora es una tarjeta del tema con un filete del color del veredicto: se lee
+  igual de bien en claro y en oscuro, y deja sitio para la etiqueta del criterio
+  aplicado. Desaparecen las tres sobrecargas de modo claro que hacían falta antes.
+- **Los dos veredictos del contraste** pasan a ser tarjetas enfrentadas, con el criterio
+  aplicado resaltado y una separación «frente a» en vez de una flecha, que sugería una
+  transformación donde solo hay comparación.
+- **Tablas** — cabecera fija al desplazar, más aire entre filas, tipografía de cabecera
+  más legible.
+- **Tarjetas** — se sustituye el `backdrop-filter` por una sombra sutil, con tokens
+  propios para los dos temas.
+- **Badges** — esquinas suavizadas en vez de píldora, para distinguirlos de los botones.
+
+---
+
+### ✅ Verificación
+
+- `pruebas_motor.py` sin fallos. La prueba que afirmaba que el predeterminado era el de
+  la tesis se actualizó y se amplió: ahora comprueba además que el de la tesis sigue
+  disponible, que su configuración no se ha tocado, y que la constante del modelo y la
+  del motor no se han separado.
+- Prueba de extremo a extremo sin fallos, con los dos criterios ejercitados sobre las
+  mismas respuestas.
+- Migración `0005` aplicada y comprobada sobre datos reales, en los dos sentidos.
+
+---
+
+## v2.3.0 — Resultados medidos, salto automático y asistencia con IA (2026-10-05)
+
+### Resumen
+
+Tres cosas: se **mide** por fin la diferencia entre los dos criterios de cálculo en
+lugar de razonarla, se corrige el salto a Resultados al completar la evaluación, y se
+implementa el **módulo de asistencia con IA** que hasta ahora solo estaba descrito.
+El criterio de la tesis sigue siendo el predeterminado y no se ha tocado.
+
+---
+
+### 📊 Resultados del contraste de criterios
+
+Nuevo `backend/recomendaciones/experimento_criterios.py`: genera **270 evaluaciones**
+sobre el catálogo real cruzando perfil de cumplimiento × desconocimiento × importancia,
+las resuelve con ambos criterios y cuantifica la diferencia. Reproducible por semilla y
+sin consumir la API. El análisis completo está en el apartado 5 de
+**[PROPUESTA.md](PROPUESTA.md)**; el hallazgo central:
+
+| | Criterio de la tesis | Criterio propuesto |
+|---|---|---|
+| Recomendación C cuando no se desconoce nada | 44,4 % | 55,6 % |
+| Recomendación C cuando se desconoce la mitad | **66,7 %** | 53,3 % |
+| Recomendación C con software que cumple todo lo conocido | **45,6 %** | **0,0 %** |
+| Recomendación A con ese mismo software | 21,1 % | **100,0 %** |
+
+Es decir: **con el criterio de la tesis el veredicto sigue al desconocimiento del
+evaluador y apenas distingue la calidad del software; con el propuesto ocurre lo
+contrario.** Los dos criterios difieren en el 53 % de las evaluaciones, y las diferencias
+van siempre en el sentido de ser menos restrictivo: ninguna evaluación calificada de A
+por la tesis baja con el criterio propuesto.
+
+Confirmado además de forma empírica lo que el apartado 2 dedujo leyendo el catálogo:
+los cinco factores que más cambian de clasificación son **exactamente los cinco de un
+solo subfactor**.
+
+Se documenta también un efecto no previsto: la banda de indecisión explica el 55 % de
+las diferencias, porque los factores de uno o dos subfactores producen ponderaciones que
+caen exactamente en 3,0. Queda registrado en el apartado 5.4 en lugar de ajustarse en
+silencio.
+
+---
+
+### 🔀 Salto automático a Resultados
+
+Al responder el último criterio pendiente, el asistente pasaba al siguiente factor pero
+**no hacía nada cuando ya no quedaba ninguno**: había que pulsar «Ver Resultados». Ahora
+la evaluación se calcula y se muestra sola. `handleCalcular` ignora la segunda llamada
+si ya hay un cálculo en curso, para que el salto automático y el botón no disparen dos.
+
+---
+
+### 🤖 Asistencia con inteligencia artificial
+
+Nuevo `backend/recomendaciones/ia.py` sobre el SDK oficial de Anthropic
+(`anthropic==1.11.0`, modelo `claude-opus-5-5`), con tres funciones:
+
+| Requisito | Qué hace |
+|---|---|
+| **RF-17** | Propone una valoración para cada subfactor de un factor, con justificación y nivel de confianza. Salida estructurada validada por esquema JSON |
+| **RF-18** | Redacta el informe ejecutivo a partir del resultado ya calculado |
+| **RF-24** | Convierte en plan de acción el conjunto mínimo de cambios que el motor calcula de forma determinista |
+| **RF-19** | Columna `origen` en `evaluaciones_evaluacionsubfactor` (migración `0004`): distingue la respuesta del decisor de la que procede de una sugerencia aceptada |
+
+**Las tres condiciones de diseño, con mecanismo detrás:**
+
+- *No participa en el cálculo* — `services.py` no importa `ia.py`, y una prueba
+  comprueba que ese import no aparezca. La dependencia va en un solo sentido.
+- *No decide* — los endpoints del asistente no escriben: devuelven propuestas. Lo que
+  se guarda pasa por el mismo camino que una respuesta manual.
+- *Deja rastro* — la columna `origen` registra la procedencia de cada respuesta.
+
+**El catálogo lo decide el servidor, no el modelo:** las sugerencias se piden por
+`factor_id` y los subfactores se leen de la base de datos. Una respuesta que mencione un
+criterio inexistente, repita uno o proponga un valor fuera de la escala 1–4 se descarta
+antes de llegar al decisor.
+
+**Degradación comprobada (RNF-13, RNF-16):** sin `ANTHROPIC_API_KEY` la interfaz no
+ofrece el asistente, los endpoints devuelven 503 con el motivo, y el plan de mejora llega
+igualmente con su cálculo completo y una nota de que no se pudo redactar.
+
+Endpoints nuevos: `GET /api/recomendaciones/ia/estado/`,
+`POST /api/recomendaciones/ia/sugerencias/`, `POST /api/evaluaciones/{id}/informe/` y
+`POST /api/evaluaciones/{id}/plan/`.
+
+---
+
+### 🧹 Código
+
+- Nuevo `backend/recomendaciones/catalogo_local.py` con el catálogo en memoria y los
+  dobles del ORM: lo comparten las pruebas y el experimento, que antes habrían tenido
+  cada uno su copia.
+- Corregido un fallo de reproducibilidad en el experimento: usaba `hash()` sobre
+  cadenas, que Python aleatoriza en cada proceso. Ahora deriva la semilla con `crc32`,
+  de modo que dos ejecuciones distintas dan exactamente las mismas cifras.
+
+---
+
+### ✅ Verificación
+
+- `pruebas_motor.py` sin fallos, con una sección nueva que comprueba la invariante de
+  que la IA no toca el cálculo y la validación de lo que devuelve el modelo.
+- Prueba de extremo a extremo contra los tres contenedores sin fallos, incluida la
+  degradación del asistente sin credencial.
+- `experimento_criterios.py` reproducible: dos ejecuciones en procesos distintos dan
+  idéntica salida.
+- **Lo que no está verificado:** la llamada real al proveedor del modelo. Todo lo que no
+  depende de la red está probado; ejercitar la API requiere una clave, que se configura
+  como explica el README.
+
+---
+
+## v2.2.0 — Contraste de criterios, Docker reproducible y limpieza (2026-10-05)
+
+### Resumen
+
+Esta versión lleva al sistema la propuesta descrita en **[PROPUESTA.md](PROPUESTA.md)**:
+el motor pasa a estar parametrizado por criterio de cálculo y la interfaz gana un
+panel que explica de qué depende la recomendación. **El criterio de la tesis sigue
+siendo el predeterminado y no se ha modificado**: las evaluaciones guardadas antes
+de esta versión conservan exactamente la misma recomendación A/B/C.
+
+---
+
+### 🆕 La propuesta, implementada
+
+| Requisito | Qué se añadió |
+|---|---|
+| **RF-20** | El motor acepta un criterio de cálculo identificado por su nombre. Se incorporan `tesis_2022` (predeterminado, congelado) y `guiosad_v2` (propuesto). Difieren solo en los pasos 4, 5 y 6; los pasos 2 y 3 son idénticos |
+| **RF-21** | Cada evaluación registra el criterio declarado. Columna `criterio` en `evaluaciones_evaluacion` (migración `0003`), aceptada al crear y modificable con `PATCH /api/evaluaciones/{id}/` |
+| **RF-22** | `GET /api/evaluaciones/{id}/comparar/` resuelve la evaluación con ambos criterios y señala qué factores cambian de clasificación, con qué ponderación en cada uno y por qué motivo |
+| **RF-23** | `GET /api/evaluaciones/{id}/determinantes/` localiza las respuestas que, contestadas de otro modo, alterarían por sí solas la recomendación |
+| **RF-24** | `GET /api/evaluaciones/{id}/plan/` calcula el conjunto mínimo de cambios que llevaría a una recomendación mejor. El objetivo se simula, no se supone: resolver los bloqueantes puede saltar más de un escalón |
+
+**Panel de análisis en la interfaz.** Botón «Analizar el resultado» en la pantalla
+de Resultados y en el detalle del historial, con tres pestañas que consultan cada
+endpoint una sola vez. Componente nuevo `frontend/src/components/AnalisisResultado.jsx`.
+
+**Dos categorías FODA nuevas**, que solo aparecen con el criterio propuesto:
+*No concluyente* (ponderación dentro de la banda de indecisión) y *Sin datos* (no
+se conoce ninguno de los subfactores del factor). La segunda evita que el
+desconocimiento del evaluador se convierta en una debilidad fabricada.
+
+El contraste **no exigió ninguna columna nueva**: recalcula sobre las respuestas ya
+almacenadas. La columna `criterio` solo deja constancia de cuál declaró el decisor.
+
+---
+
+### ⚡ Rendimiento
+
+| Problema | Corrección | Efecto |
+|---|---|---|
+| El historial y el panel de métricas resolvían cada evaluación por separado: **dos consultas por evaluación** | Lectura por lotes (`instantaneas()`), con el ensamblado compartido con la versión de una sola evaluación | **Dos consultas constantes** en vez de 2·N. Con cien evaluaciones, de 200 consultas a 2 |
+| Guardar una evaluación hacía **una lectura y una escritura por subfactor** (hasta 122 consultas) | `bulk_create` para factores y subfactores, con validación previa en bloque | **Dos inserciones** en total |
+| La librería de gráficos (~350 KB) entraba en el paquete inicial aunque no se usara en el primer paso | Carga diferida de `DashboardPage` y `RadarDimensiones` | Paquete inicial de **588 kB → 182 kB** (gzip: 168 kB → 57 kB) |
+
+---
+
+### 🐳 Docker y reproducibilidad
+
+| Antes | Ahora |
+|---|---|
+| El contenedor ejecutaba `makemigrations` en cada arranque: el esquema se generaba en tiempo de ejecución y podía diferir entre equipos | Las migraciones están **versionadas**; el arranque solo ejecuta `migrate`. Se retiró `*/migrations/` del `.gitignore`, que contradecía el RNF-09 |
+| Sin `.dockerignore`: `node_modules` y `__pycache__` entraban en el contexto de construcción | `.dockerignore` en `backend/` y `frontend/` |
+| `npm install` en la imagen del frontend | `npm ci`, que respeta `package-lock.json` |
+| Credenciales fijas en `docker-compose.yml` | Variables con valor por defecto (`${VAR:-...}`) y `.env.example`. Sigue arrancando sin ningún `.env` |
+| El frontend arrancaba sin esperar al backend | Healthcheck del backend contra `/api/factores/` —que solo responde con la base de datos migrada y sembrada— y `depends_on: service_healthy` encadenado |
+| Dockerfile del backend sin ajustes de entorno | `PYTHONDONTWRITEBYTECODE` y `PYTHONUNBUFFERED`; gunicorn con 2 trabajadores y `--timeout 60` |
+
+---
+
+### 🧹 Código y estructura
+
+- **Documentación reducida a tres ficheros**: `README.md` (qué es y cómo
+  ejecutarlo), `PROPUESTA.md` (la propuesta del sistema) y este historial. Se
+  eliminaron `MEJORAS.md` y `MIGRACION_GUIOSAD.md`, cuyo contenido se integró en
+  los dos primeros.
+- **Etiquetas de recomendación y FODA unificadas** en `frontend/src/utils/recomendacion.js`:
+  antes estaban duplicadas en la tabla de resultados.
+- **Las pruebas del motor ya no dependen de `proyecto base 0/`**, que está fuera del
+  repositorio. Ahora leen el catálogo de las mismas fixtures con las que se siembra
+  PostgreSQL, de modo que prueba y sistema comparten los datos.
+- **Zona horaria** corregida a `America/Guayaquil` (estaba en `America/Mexico_City`).
+- Corregido un dato erróneo de este mismo historial: la importancia sugerida no
+  vale 3 en los dieciocho factores, sino 3 en nueve y 2 en los otros nueve.
+
+---
+
+### ✅ Verificación
+
+- `backend/recomendaciones/pruebas_motor.py` — sin fallos. Comprueban que el
+  criterio de la tesis sigue reproduciendo sus 16 combinaciones de importancia
+  relativa y sus textos de recomendación (RNF-15), y que los cinco límites de
+  calibración documentados se cumplen sobre el catálogo real.
+- Prueba de extremo a extremo contra los tres contenedores: catálogo servido,
+  evaluación creada, contraste, sensibilidad, plan, cambio de criterio declarado,
+  rechazo de un criterio inexistente, historial y panel de métricas. Sin fallos.
+- `docker compose up --build` desde cero: los tres servicios arrancan encadenados y
+  el sistema queda operativo sin intervención manual.
+
+---
+
 ## v2.1.0 — Corrección de bugs, nuevas funcionalidades, rediseño y limpieza (2026-09-23)
 
 ### Resumen
@@ -91,7 +517,7 @@ del método y requiere aprobación académica.
 
 | Límite | Efecto observado |
 |---|---|
-| Ningún factor tiene importancia sugerida 4 | El nivel **Fundamental** es inalcanzable: `IR` necesita `IS=4` e `ID=4` |
+| La importancia sugerida solo vale 2 o 3 (nueve factores cada una) | El nivel **Fundamental** es inalcanzable: `IR` necesita `IS=4` e `ID=4` |
 | División entera en `IR = (IS-1 + ID-1) // 2` | Varias posiciones del selector producen el mismo resultado; con `IS=3` solo hay 2 resultados distintos |
 | Umbral FODA en 3.0 | Corte duro sin zona gris: 2.99 → Debilidad, 3.00 → Fortaleza |
 | Banderas booleanas en la recomendación | **Un solo** factor Debilidad/Amenaza importante fuerza la recomendación C sobre toda la evaluación |
@@ -127,9 +553,9 @@ implementa el sistema.
 #### Dos observaciones derivadas del cotejo
 
 **El nivel «Fundamental» no puede alcanzarse.** Según la Tabla 5.3 de la tesis, la
-Importancia del Experto es 3 en los 18 factores, por lo que la Importancia
-Sugerida solo puede valer 2 o 3, y la Importancia Relativa nunca llega a 4. No es
-un defecto de la implementación sino una consecuencia de cómo quedó calibrado el
+Importancia Sugerida solo toma dos valores en el catálogo —3 en nueve factores y 2
+en los otros nueve—, de modo que la Importancia Relativa nunca llega a 4. No es un
+defecto de la implementación sino una consecuencia de cómo quedó calibrado el
 instrumento. La tesis reconoce esta clase de limitación en la página 88, al
 admitir que existen formas de cálculo que aprovecharían mejor la precisión de los
 valores intermedios.

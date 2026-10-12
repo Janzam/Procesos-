@@ -44,9 +44,18 @@ class EvaluacionFactor(models.Model):
 
 
 class EvaluacionSubfactor(models.Model):
+    # Procedencia de la respuesta (RF-19). El asistente con IA no almacena nada por
+    # su cuenta: el decisor confirma cada sugerencia y entonces se guarda marcada
+    # como tal, de modo que cualquier evaluacion puede auditarse despues.
+    ORIGEN_CHOICES = [
+        ('manual', 'Introducida por el decisor'),
+        ('sugerido_ia', 'Sugerencia del asistente aceptada por el decisor'),
+    ]
+
     evaluacion = models.ForeignKey(Evaluacion, on_delete=models.CASCADE, related_name='subfactores_eval')
     subfactor = models.ForeignKey(Subfactor, on_delete=models.CASCADE)
     valor = models.IntegerField()  # 1-4, slider del decisor en Paso 3-4
+    origen = models.CharField(max_length=20, choices=ORIGEN_CHOICES, default='manual')
 
     class Meta:
         unique_together = ('evaluacion', 'subfactor')

@@ -1,4 +1,4 @@
-// origen: nuevo | paso inicial: datos del software a evaluar (todos opcionales)
+// Paso inicial: datos del software a evaluar (todos opcionales).
 const LICENCIAS = [
   'GPL / AGPL',
   'LGPL',
@@ -19,82 +19,106 @@ export const SOFTWARE_VACIO = {
   evaluador: '',
 }
 
+function Campo({ etiqueta, pista, children }) {
+  return (
+    <label className="campo">
+      <span className="campo-etiqueta">{etiqueta}</span>
+      {children}
+      {pista && <span className="campo-pista">{pista}</span>}
+    </label>
+  )
+}
+
 export default function StepSoftware({ software, onChange, onStart }) {
   const set = (campo) => (e) => onChange({ ...software, [campo]: e.target.value })
 
+  // El mismo nombre que llevará la evaluación en el historial. Se muestra
+  // mientras se escribe para que no haya sorpresas después.
+  const base = [software.nombre, software.version].filter(Boolean).join(' ').trim()
+  const titulo = base
+    ? (software.organizacion ? `${base} — ${software.organizacion}` : base)
+    : 'Evaluación sin nombre'
+
   return (
-    <div className="card software-card">
-      <div className="software-card-header">
-        <span className="card-header-title" style={{ color: 'var(--text-primary)' }}>Software a evaluar</span>
-        <span className="badge badge-optional">Opcional</span>
-      </div>
-
-      <form
-        className="software-form"
-        onSubmit={(e) => { e.preventDefault(); onStart() }}
-      >
-        <div className="software-grid">
-          <label className="field">
-            <span className="field-label">Nombre del software</span>
-            <input
-              className="field-input"
-              placeholder="Ej. Moodle, Odoo, LibreOffice"
-              value={software.nombre}
-              onChange={set('nombre')}
-              autoFocus
-            />
-          </label>
-
-          <label className="field">
-            <span className="field-label">Versión</span>
-            <input
-              className="field-input"
-              placeholder="Ej. 4.3"
-              value={software.version}
-              onChange={set('version')}
-            />
-          </label>
-
-          <label className="field">
-            <span className="field-label">Tipo de licencia</span>
-            <select className="field-input" value={software.licencia} onChange={set('licencia')}>
-              <option value="">Seleccione…</option>
-              {LICENCIAS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </label>
-
-          <label className="field">
-            <span className="field-label">Proveedor / comunidad</span>
-            <input
-              className="field-input"
-              placeholder="Ej. Moodle HQ"
-              value={software.proveedor}
-              onChange={set('proveedor')}
-            />
-          </label>
-
-          <label className="field">
-            <span className="field-label">Organización</span>
-            <input
-              className="field-input"
-              placeholder="Ej. Universidad Estatal de Milagro"
-              value={software.organizacion}
-              onChange={set('organizacion')}
-            />
-          </label>
-
-          <label className="field">
-            <span className="field-label">Evaluador</span>
-            <input
-              className="field-input"
-              placeholder="Nombre del decisor o evaluador"
-              value={software.evaluador}
-              onChange={set('evaluador')}
-            />
-          </label>
+    <div className="sw-layout">
+      <aside className="sw-intro">
+        <span className="sw-paso">Paso 1 de 4</span>
+        <h2 className="sw-titulo">¿Qué software vas a evaluar?</h2>
+        <p className="sw-texto">
+          Nada de esto interviene en el cálculo: sirve para que el informe identifique sin
+          ambigüedad qué se analizó y para poder encontrarlo después en el historial.
+        </p>
+        <p className="sw-texto">
+          Puedes dejarlo todo en blanco y empezar directamente.
+        </p>
+        <div className="sw-preview">
+          <span className="sw-preview-etiqueta">Se guardará como</span>
+          <span className={`sw-preview-valor${base ? '' : ' sw-preview-vacio'}`}>{titulo}</span>
         </div>
+      </aside>
 
-        <div className="software-actions">
+      <form className="sw-form" onSubmit={(e) => { e.preventDefault(); onStart() }}>
+        <fieldset className="sw-grupo">
+          <legend className="sw-grupo-titulo">El producto</legend>
+          <div className="sw-rejilla">
+            <Campo etiqueta="Nombre del software">
+              <input
+                className="field-input"
+                placeholder="Moodle, Odoo, LibreOffice…"
+                value={software.nombre}
+                onChange={set('nombre')}
+                autoFocus
+              />
+            </Campo>
+            <Campo etiqueta="Versión">
+              <input
+                className="field-input"
+                placeholder="4.3"
+                value={software.version}
+                onChange={set('version')}
+              />
+            </Campo>
+            <Campo etiqueta="Tipo de licencia">
+              <select className="field-input" value={software.licencia} onChange={set('licencia')}>
+                <option value="">Seleccione…</option>
+                {LICENCIAS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </Campo>
+            <Campo etiqueta="Proveedor o comunidad">
+              <input
+                className="field-input"
+                placeholder="Moodle HQ"
+                value={software.proveedor}
+                onChange={set('proveedor')}
+              />
+            </Campo>
+          </div>
+        </fieldset>
+
+        <fieldset className="sw-grupo">
+          <legend className="sw-grupo-titulo">Quién evalúa</legend>
+          <div className="sw-rejilla">
+            <Campo etiqueta="Organización">
+              <input
+                className="field-input"
+                placeholder="Universidad Estatal de Milagro"
+                value={software.organizacion}
+                onChange={set('organizacion')}
+              />
+            </Campo>
+            <Campo etiqueta="Evaluador">
+              <input
+                className="field-input"
+                placeholder="Nombre del decisor"
+                value={software.evaluador}
+                onChange={set('evaluador')}
+              />
+            </Campo>
+          </div>
+        </fieldset>
+
+        <div className="sw-acciones">
+          <span className="sw-acciones-nota">Lo siguiente: ajustar la importancia de los 18 factores.</span>
           <button type="submit" className="btn btn-primary">
             Comenzar evaluación
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2.5}>

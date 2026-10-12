@@ -1,9 +1,11 @@
 // origen: App.jsx original | cambio: layout con sidebar + topbar + toggle de tema claro/oscuro
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar.jsx'
 import EvaluacionPage from './pages/EvaluacionPage.jsx'
 import HistorialPage from './pages/HistorialPage.jsx'
-import DashboardPage from './pages/DashboardPage.jsx'
+// El panel de métricas arrastra la librería de gráficos (~300 KB). Se carga
+// solo cuando se entra en él, no al abrir la aplicación.
+const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'))
 
 const PAGE_TITLES = {
   dashboard: 'Dashboard',
@@ -56,12 +58,19 @@ function leerSidebar() {
 
 export default function App() {
   const [page, setPage]   = useState(leerPagina)
+  // Evaluación que se está editando, si se llegó aquí desde el historial.
+  const [editarId, setEditarId] = useState(null)
   const [dark, setDark]   = useState(leerTema)
   const [sidebar, setSidebar] = useState(leerSidebar)
 
   useEffect(() => {
     try { localStorage.setItem(PAGE_KEY, page) } catch { /* modo privado */ }
   }, [page])
+
+  function navegar(destino, opciones) {
+    setEditarId(opciones?.editar ?? null)
+    setPage(destino)
+  }
 
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_KEY, sidebar ? 'visible' : 'oculto') } catch { /* modo privado */ }
@@ -74,7 +83,7 @@ export default function App() {
 
   return (
     <div className={`layout${sidebar ? '' : ' layout-sin-sidebar'}`}>
-      {sidebar && <Sidebar page={page} onNavigate={setPage} onHide={() => setSidebar(false)} />}
+      {sidebar && <Sidebar page={page} onNavigate={navegar} onHide={() => setSidebar(false)} />}
       <div className="layout-main">
         <header className="topbar">
           <div className="topbar-left">
@@ -96,9 +105,11 @@ export default function App() {
           </button>
         </header>
         <main className="layout-content">
-          {page === 'dashboard'  && <DashboardPage onNavigate={setPage} />}
-          {page === 'evaluacion' && <EvaluacionPage />}
-          {page === 'historial'  && <HistorialPage  />}
+          <Suspense fallback={<p className="analisis-vacio">Cargando…</p>}>
+            {page === 'dashboard' && <DashboardPage onNavigate={navegar} />}
+          </Suspense>
+          {page === 'evaluacion' && <EvaluacionPage editarId={editarId} onFinEdicion={() => setEditarId(null)} />}
+          {page === 'historial'  && <HistorialPage onNavigate={navegar} />}
         </main>
       </div>
     </div>

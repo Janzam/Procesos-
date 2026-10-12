@@ -1,48 +1,75 @@
+# GUIOSAD v2 — los tres servicios del sistema.
+#
+#   docker compose up --build        levanta todo
+#   docker compose down              lo detiene
+#   docker compose down -v           lo detiene y borra también la base de datos
+#
+# Funciona sin ningún fichero .env: cada variable trae su valor por defecto.
+# Para cambiarlos, copia .env.example a .env y edítalo.
+
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: guiosad
-      POSTGRES_USER: guiosad
-      POSTGRES_PASSWORD: guiosad
+      POSTGRES_DB: ${DB_NAME:-guiosad}
+      POSTGRES_USER: ${DB_USER:-guiosad}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-guiosad}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U guiosad"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-guiosad} -d ${DB_NAME:-guiosad}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     build: ./backend
+    # Las migraciones están versionadas en el repositorio: aquí solo se aplican.
+    # Antes se ejecutaba makemigrations en cada arranque, lo que generaba el
+    # esquema en tiempo de ejecución y podía producir migraciones distintas en
+    # cada equipo. La carga de datos maestros es idempotente: las fixtures traen
+    # claves primarias fijas, de modo que repetirla no duplica nada.
     command: >
-      sh -c "python manage.py makemigrations factores evaluaciones &&
-             python manage.py migrate &&
-             python manage.py loaddata fixtures/factores.json &&
-             python manage.py loaddata fixtures/subfactores.json &&
-             gunicorn guiosad.wsgi:application --bind 0.0.0.0:8000"
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py loaddata fixtures/factores.json fixtures/subfactores.json &&
+             gunicorn guiosad.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60"
     environment:
-      DB_NAME: guiosad
-      DB_USER: guiosad
-      DB_PASSWORD: guiosad
+      DB_NAME: ${DB_NAME:-guiosad}
+      DB_USER: ${DB_USER:-guiosad}
+      DB_PASSWORD: ${DB_PASSWORD:-guiosad}
       DB_HOST: db
       DB_PORT: 5432
-      DEBUG: "False"
-      SECRET_KEY: "change-me-in-production"
+      DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY:-clave-de-desarrollo-cambiar-en-produccion}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      # Asistente con IA (opcional). Sin credencial el sistema funciona igual
+      # y la interfaz oculta el asistente.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      IA_HABILITADA: ${IA_HABILITADA:-True}
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
+      # El código se monta para que un cambio no obligue a reconstruir la imagen.
       - ./backend:/app
+    healthcheck:
+      # El catálogo solo responde con la base de datos migrada y sembrada, así que
+      # sirve de señal de que el sistema está realmente listo para usarse.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/factores/', timeout=5)\""]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 30s
 
   frontend:
     build: ./frontend
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:

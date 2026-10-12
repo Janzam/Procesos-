@@ -1,7 +1,11 @@
 // origen: main.py (Tab 3) | cambio: banner de recomendación + tabla FODA moderna + mini-barras
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import FodaFlower from '../FodaFlower.jsx'
-import RadarDimensiones from '../RadarDimensiones.jsx'
+// Mismo motivo que en el Dashboard: el radar usa la librería de gráficos y solo
+// se necesita si el panel de visualizaciones está visible.
+const RadarDimensiones = lazy(() => import('../RadarDimensiones.jsx'))
+import AnalisisResultado from '../AnalisisResultado.jsx'
+import { REC_LABEL, REC_CLASS, REC_BADGE, FODA_CLASS } from '../../utils/recomendacion.js'
 
 // Las librerías de exportación (jsPDF, ExcelJS) pesan ~700 KB y se cargan aparte
 // del arranque. Se precargan al entrar en Resultados: si el navegador tuviera que
@@ -25,16 +29,6 @@ function leerMostrarGraficos() {
   try { return localStorage.getItem(GRAFICOS_KEY) !== 'no' } catch { return true }
 }
 
-const FODA_CLASS = {
-  Fortaleza:   'badge-foda-fortaleza',
-  Oportunidad: 'badge-foda-oportunidad',
-  Debilidad:   'badge-foda-debilidad',
-  Amenaza:     'badge-foda-amenaza',
-}
-const REC_LABEL = { A: 'Adoptar el software', B: 'Adoptar con reservas', C: 'No adoptar todavía' }
-const REC_CLASS = { A: 'rec-banner-a', B: 'rec-banner-b', C: 'rec-banner-c' }
-const REC_BADGE = { A: 'rec-badge-a', B: 'rec-badge-b', C: 'rec-badge-c' }
-
 function MiniBar({ val, max = 4 }) {
   const pct = Math.round((val / max) * 100)
   const good = val >= 2.5
@@ -48,7 +42,7 @@ function MiniBar({ val, max = 4 }) {
   )
 }
 
-export default function StepResultados({ resultado, nombre }) {
+export default function StepResultados({ resultado, nombre, evaluacionId }) {
   const [mostrarGraficos, setMostrarGraficos] = useState(leerMostrarGraficos)
   useEffect(() => {
     try { localStorage.setItem(GRAFICOS_KEY, mostrarGraficos ? 'si' : 'no') } catch { /* ignorar */ }
@@ -67,8 +61,8 @@ export default function StepResultados({ resultado, nombre }) {
       <div className={`rec-banner ${REC_CLASS[cod] || ''}`}>
         <div className={`rec-badge-circle ${REC_BADGE[cod] || ''}`}>{cod || '?'}</div>
         <div>
-          <div className="rec-title">
-            Recomendación {cod} — {REC_LABEL[cod] || 'Resultado'}
+          <div className="rec-cab">
+            <span className="rec-title">Recomendación {cod} — {REC_LABEL[cod] || 'Resultado'}</span>
           </div>
           <div className="rec-text">{recomendacion.texto}</div>
         </div>
@@ -135,10 +129,15 @@ export default function StepResultados({ resultado, nombre }) {
         {mostrarGraficos && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <FodaFlower factores={factores} />
-            <RadarDimensiones factores={factores} />
+            <Suspense fallback={<div className="card" style={{ padding: 20 }}><span className="analisis-vacio">Cargando gráfico…</span></div>}>
+              <RadarDimensiones factores={factores} />
+            </Suspense>
           </div>
         )}
       </div>
+
+      {/* Explica por qué la recomendación es la que es, sin recalcular nada */}
+      <AnalisisResultado evaluacionId={evaluacionId} />
 
       <div className="results-footer">
         <button className="btn btn-outline" onClick={() => exportar('pdf', nombre, resultado)}>

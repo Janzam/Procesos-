@@ -1,6 +1,6 @@
 // origen: main.py (Tab 2) | cambio: lista de progreso + selector de 4 opciones y avance automático
 import { useState, useRef, useEffect } from 'react'
-import { calcularIR } from '../../api/guiosad.js'
+import { calcularIR, pedirSugerencias } from '../../api/guiosad.js'
 
 // Texto completo de la escala original y su versión corta para los botones
 const NIVELES_SUB = ['No cumple el requisito', 'Desconozco si cumple', 'Cumple parcialmente', 'Cumple el requisito']
@@ -13,10 +13,41 @@ function esRelevante(f, evaluacionFactores, matrizIR) {
   return calcularIR(matrizIR, f.importancia_sugerida, id).relevante
 }
 
-export default function StepSubfactores({ factores, evaluacionFactores, subfactores, onChange, matrizIR }) {
+// Marca con la que setSaltandoA distingue el salto al siguiente factor del
+// salto final a Resultados.
+const FIN = Symbol('fin')
+
+function SugerenciaIA({ sugerencia, valorActual, esDeIA, onAplicar }) {
+  const aplicada = esDeIA && valorActual === sugerencia.valor
+  return (
+    <div className={`ia-sug${aplicada ? ' ia-sug-aplicada' : ''}`}>
+      <div className="ia-sug-cab">
+        <span className="ia-sug-marca">IA</span>
+        <span className="ia-sug-valor">{sugerencia.valor_etiqueta}</span>
+        <span className={`ia-sug-conf ia-conf-${sugerencia.confianza}`}>
+          confianza {sugerencia.confianza}
+        </span>
+        {aplicada
+          ? <span className="ia-sug-ok">Aplicada</span>
+          : <button type="button" className="btn btn-outline btn-xs" onClick={onAplicar}>Aplicar</button>}
+      </div>
+      {sugerencia.justificacion && <p className="ia-sug-just">{sugerencia.justificacion}</p>}
+    </div>
+  )
+}
+
+export default function StepSubfactores({
+  factores, evaluacionFactores, subfactores, onChange, matrizIR, onCompletado,
+  software, origenes = {}, onOrigenes, iaDisponible,
+}) {
   const relevantes = factores.filter(f => esRelevante(f, evaluacionFactores, matrizIR))
 
   const [selId, setSelId] = useState(relevantes[0]?.id || null)
+  // Sugerencias ya pedidas, por factor. Se conservan mientras dure el paso para
+  // no volver a consultar al modelo al ir y venir entre factores.
+  const [sugerencias, setSugerencias] = useState({})
+  const [cargandoIA, setCargandoIA] = useState(false)
+  const [errorIA, setErrorIA] = useState(null)
   const [saltandoA, setSaltandoA] = useState(null)
   const timerRef = useRef(null)
   const panelRef = useRef(null)
@@ -35,9 +66,12 @@ export default function StepSubfactores({ factores, evaluacionFactores, subfacto
     if (conScroll) panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  function handleSub(id, val) {
+  function handleSub(id, val, origen = 'manual') {
     const nuevos = { ...subfactores, [id]: val }
     onChange(nuevos)
+    // RF-19: se registra si la respuesta la introdujo el decisor o si procede de
+    // una sugerencia que aceptó.
+    onOrigenes?.({ ...origenes, [id]: origen })
     if (!factor) return
 
     // Al completar el último subfactor pendiente, saltar solo al siguiente factor
@@ -49,11 +83,44 @@ export default function StepSubfactores({ factores, evaluacionFactores, subfacto
     const siguiente =
       relevantes.slice(desde + 1).find(f => faltanDe(f, nuevos) > 0) ||
       relevantes.find(f => faltanDe(f, nuevos) > 0)
-    if (!siguiente) return
 
     clearTimeout(timerRef.current)
+
+    // No queda ningún factor pendiente: la evaluación está completa y se pasa
+    // directamente a Resultados, sin obligar a pulsar el botón de la barra.
+    if (!siguiente) {
+      if (!onCompletado) return
+      setSaltandoA(FIN)
+      timerRef.current = setTimeout(() => { setSaltandoA(null); onCompletado() }, 750)
+      return
+    }
+
     setSaltandoA(siguiente.nombre)
     timerRef.current = setTimeout(() => irA(siguiente.id, true), 750)
+  }
+
+  async function pedirIA() {
+    if (!factor) return
+    setCargandoIA(true)
+    setErrorIA(null)
+    try {
+      const res = await pedirSugerencias(factor.id, software)
+      setSugerencias(prev => ({ ...prev, [factor.id]: res.valoraciones }))
+    } catch (e) {
+      setErrorIA(e.message)
+    } finally {
+      setCargandoIA(false)
+    }
+  }
+
+  // Aplicar todas de golpe pasa por el mismo camino que una a una: se escriben
+  // como respuestas del decisor marcadas con su procedencia.
+  function aplicarTodas(lista) {
+    const nuevos = { ...subfactores }
+    const nuevosOrigenes = { ...origenes }
+    lista.forEach(v => { nuevos[v.subfactor_id] = v.valor; nuevosOrigenes[v.subfactor_id] = 'sugerido_ia' })
+    onChange(nuevos)
+    onOrigenes?.(nuevosOrigenes)
   }
 
   if (relevantes.length === 0) {
@@ -116,38 +183,81 @@ export default function StepSubfactores({ factores, evaluacionFactores, subfacto
                 <h2 className="sub-panel-titulo">{factor.nombre}</h2>
                 <p className="sub-panel-sub">Indique el grado de cumplimiento de cada requisito</p>
               </div>
-              <span className="sub-panel-cont">{respondidos}<small>/{total}</small></span>
+              <div className="sub-panel-acciones">
+                {iaDisponible && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-xs"
+                    onClick={pedirIA}
+                    disabled={cargandoIA}
+                    title="Propone una valoración para cada criterio de este factor. Nada se guarda sin que usted lo acepte."
+                  >
+                    {cargandoIA ? 'Consultando…' : 'Sugerir con IA'}
+                  </button>
+                )}
+                <span className="sub-panel-cont">{respondidos}<small>/{total}</small></span>
+              </div>
             </header>
 
             <div className="sub-panel-barra"><span style={{ width: pct + '%' }} /></div>
 
+            {errorIA && <div className="error-msg">{errorIA}</div>}
+
+            {sugerencias[factor.id]?.length > 0 && (
+              <div className="ia-barra">
+                <span>
+                  El asistente propone {sugerencias[factor.id].length} valoraciones.
+                  Revíselas: ninguna se guarda hasta que usted la acepte.
+                </span>
+                <button type="button" className="btn btn-outline btn-xs"
+                        onClick={() => aplicarTodas(sugerencias[factor.id])}>
+                  Aplicar todas
+                </button>
+              </div>
+            )}
+
             {saltandoA && (
-              <div className="sub-salto">Factor completado · pasando a <strong>{saltandoA}</strong>…</div>
+              <div className="sub-salto">
+                {saltandoA === FIN
+                  ? <>Evaluación completada · calculando los <strong>resultados</strong>…</>
+                  : <>Factor completado · pasando a <strong>{saltandoA}</strong>…</>}
+              </div>
             )}
 
             <div className="sub-preguntas">
               {factor.subfactores.map((s, idx) => {
                 const val = subfactores[s.id]
                 const respondido = val !== undefined
+                const sug = sugerencias[factor.id]?.find(v => v.subfactor_id === s.id)
                 return (
                   <div className={`sub-row${respondido ? '' : ' sub-row-pendiente'}`} key={s.id}>
                     <div className="sub-pregunta">
                       <span className="sub-num">{String(idx + 1).padStart(2, '0')}</span>
                       <span>{s.nombre}</span>
                     </div>
-                    <div className="segmented segmented-sub" role="group" aria-label={s.nombre}>
-                      {NIVELES_CORTO.map((corto, i) => (
-                        <button
-                          key={corto}
-                          type="button"
-                          className={`seg-btn${val === i + 1 ? ` seg-activo nivel-${i + 1}` : ''}`}
-                          aria-pressed={val === i + 1}
-                          title={NIVELES_SUB[i]}
-                          onClick={() => handleSub(s.id, i + 1)}
-                        >
-                          {corto}
-                        </button>
-                      ))}
+                    <div className="sub-controles">
+                      <div className="segmented segmented-sub" role="group" aria-label={s.nombre}>
+                        {NIVELES_CORTO.map((corto, i) => (
+                          <button
+                            key={corto}
+                            type="button"
+                            className={`seg-btn${val === i + 1 ? ` seg-activo nivel-${i + 1}` : ''}`}
+                            aria-pressed={val === i + 1}
+                            title={NIVELES_SUB[i]}
+                            onClick={() => handleSub(s.id, i + 1)}
+                          >
+                            {corto}
+                          </button>
+                        ))}
+                      </div>
+                      {sug && (
+                        <SugerenciaIA
+                          sugerencia={sug}
+                          valorActual={val}
+                          esDeIA={origenes[s.id] === 'sugerido_ia'}
+                          onAplicar={() => handleSub(s.id, sug.valor, 'sugerido_ia')}
+                        />
+                      )}
                     </div>
                   </div>
                 )
