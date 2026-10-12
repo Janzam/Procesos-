@@ -44,15 +44,7 @@ class IANoDisponible(RuntimeError):
 
 def disponible() -> bool:
     """True si el asistente puede invocarse en esta instalacion."""
-    if not getattr(settings, "IA_HABILITADA", True):
-        return False
-    if not getattr(settings, "ANTHROPIC_API_KEY", ""):
-        return False
-    try:
-        import anthropic  # noqa: F401
-    except ImportError:
-        return False
-    return True
+    return estado()["disponible"]
 
 
 def estado() -> dict:
@@ -263,8 +255,7 @@ def redactar_informe(software: dict, resultado: dict) -> str:
         f"Texto oficial de esa recomendacion: {rec.get('texto', '-')}\n\n"
         f"Recuento: {detalle.get('favorables', 0)} factores favorables, "
         f"{detalle.get('desfavorables', 0)} desfavorables "
-        f"({detalle.get('criticas', 0)} de ellos en factores importantes), "
-        f"{detalle.get('no_concluyentes', 0)} no concluyentes.\n\n"
+        f"({detalle.get('criticas', 0)} de ellos en factores importantes).\n\n"
         f"Fortalezas y oportunidades: {_resumir_factores(factores, ('Fortaleza', 'Oportunidad'))}\n\n"
         f"Debilidades y amenazas: {_resumir_factores(factores, ('Debilidad', 'Amenaza'))}\n\n"
         f"Redacta el informe ejecutivo."

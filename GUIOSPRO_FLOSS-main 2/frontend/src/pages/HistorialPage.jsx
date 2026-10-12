@@ -6,12 +6,10 @@
 import { useState, useEffect } from 'react'
 import { getHistorial, getEvaluacion, eliminarEvaluacion } from '../api/guiosad.js'
 import StepResultados from '../components/wizard/StepResultados.jsx'
+import { REC_V } from '../utils/recomendacion.js'
 
-const REC = {
-  A: { clase: 'v-a', corto: 'Adoptar' },
-  B: { clase: 'v-b', corto: 'Con reservas' },
-  C: { clase: 'v-c', corto: 'No adoptar' },
-}
+// Etiqueta breve del veredicto, para las tarjetas y el chip del detalle.
+const REC_CORTO = { A: 'Adoptar', B: 'Con reservas', C: 'No adoptar' }
 
 // Datos del software evaluado. Solo se muestran los que se rellenaron; las
 // evaluaciones guardadas antes de esta versión no los tienen.
@@ -29,9 +27,9 @@ function fecha(iso, largo = false) {
 function Veredicto({ codigo, grande }) {
   if (!codigo) return null
   return (
-    <span className={`vchip ${REC[codigo]?.clase || ''}${grande ? ' vchip-lg' : ''}`}>
+    <span className={`vchip ${REC_V[codigo] || ''}${grande ? ' vchip-lg' : ''}`}>
       <b>{codigo}</b>
-      <span>{REC[codigo]?.corto}</span>
+      <span>{REC_CORTO[codigo]}</span>
     </span>
   )
 }
@@ -170,7 +168,7 @@ export default function HistorialPage({ onNavigate }) {
             : (
               <div className="hist-rejilla">
                 {visibles.map(ev => (
-                  <div key={ev.id} className={`hist-tarjeta ${REC[ev.recomendacion_codigo]?.clase || ''}`}>
+                  <div key={ev.id} className={`hist-tarjeta ${REC_V[ev.recomendacion_codigo] || ''}`}>
                     <button className="hist-tarjeta-cuerpo" onClick={() => verDetalle(ev.id)}>
                       <span className="hist-tarjeta-cab">
                         <Veredicto codigo={ev.recomendacion_codigo} />
@@ -226,7 +224,7 @@ export default function HistorialPage({ onNavigate }) {
               <div className="hist-saltos-lista">
                 {historial.filter(e => e.id !== selId).slice(0, 8).map(ev => (
                   <button key={ev.id} className="hist-salto" onClick={() => verDetalle(ev.id)}>
-                    <span className={`leyenda-punto ${REC[ev.recomendacion_codigo]?.clase || ''}`} aria-hidden="true" />
+                    <span className={`leyenda-punto ${REC_V[ev.recomendacion_codigo] || ''}`} aria-hidden="true" />
                     {ev.nombre}
                   </button>
                 ))}

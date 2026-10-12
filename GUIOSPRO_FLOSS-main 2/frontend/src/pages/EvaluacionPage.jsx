@@ -2,22 +2,24 @@
 import { useState, useEffect } from 'react'
 import {
   getFactores, getMatrizIR, crearEvaluacion, actualizarEvaluacion,
-  getEvaluacion, calcularIR, getEstadoIA,
+  getEvaluacion, esRelevante, getEstadoIA,
 } from '../api/guiosad.js'
+import {
+  SOFTWARE_VACIO, nombreCorto, nombreEvaluacion, softwareAPayload, softwareDesdeApi,
+} from '../utils/software.js'
 import Stepper from '../components/Stepper.jsx'
-import StepSoftware, { SOFTWARE_VACIO } from '../components/wizard/StepSoftware.jsx'
+import StepSoftware from '../components/wizard/StepSoftware.jsx'
 import StepFactores from '../components/wizard/StepFactores.jsx'
 import StepSubfactores from '../components/wizard/StepSubfactores.jsx'
 import StepResultados from '../components/wizard/StepResultados.jsx'
 
 const STEPS = ['Software', 'Factores', 'Subfactores', 'Resultados']
-
-// Nombre de la evaluación a partir de los datos del software (todos opcionales)
-function nombreEvaluacion(sw) {
-  const base = [sw.nombre, sw.version].filter(Boolean).join(' ').trim()
-  if (!base) return 'Evaluación sin nombre'
-  return sw.organizacion ? `${base} — ${sw.organizacion}` : base
-}
+const SUBTITULOS = [
+  'Identifique el producto que va a analizar.',
+  'Ajuste la importancia de cada factor según su organización.',
+  'Evalúe el cumplimiento de los subfactores para cada factor relevante.',
+  'Resultado del análisis FODA y recomendación final.',
+]
 
 // Estado del wizard persistido en localStorage: al recargar la página se
 // continúa donde se estaba; solo se borra con "Nueva evaluación".
@@ -55,15 +57,14 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
   const [evaluacionId, setEvaluacionId] = useState(guardado?.evaluacionId ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [cargandoFactores, setCargandoFactores] = useState(true)
+  const [matrizIR, setMatrizIR] = useState(null)
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId }))
     } catch { /* modo privado o sin espacio */ }
   }, [step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId])
-
-  const [cargandoFactores, setCargandoFactores] = useState(true)
-  const [matrizIR, setMatrizIR] = useState(null)
 
   // Carga factores y matriz IR con reintentos: en Docker el backend tarda unos
   // segundos en arrancar (migraciones + fixtures) y el primer fetch puede fallar.
@@ -96,15 +97,9 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
     getEvaluacion(editarId).then(ev => {
       if (!vigente) return
       const r = ev.respuestas || {}
-      setSoftware({ ...SOFTWARE_VACIO, ...Object.fromEntries(
-        Object.entries(ev.software || {}).map(([k, v]) => [k === 'software_nombre' ? 'nombre' : k, v]),
-      ) })
-      setEvFactores(Object.fromEntries(
-        Object.entries(r.factores || {}).map(([id, f]) => [id, { ...f }]),
-      ))
-      setEvSubfactores(Object.fromEntries(
-        Object.entries(r.subfactores || {}).map(([id, v]) => [id, v]),
-      ))
+      setSoftware(softwareDesdeApi(ev.software))
+      setEvFactores(r.factores || {})
+      setEvSubfactores(r.subfactores || {})
       setEvOrigenes(r.origenes || {})
       setResultado(ev.resultado)
       setEvaluacionId(ev.id)
@@ -123,9 +118,7 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
   // Subfactores sin responder de los factores que sí entrarán en el cálculo
   function contarPendientes() {
     return factores.reduce((n, f) => {
-      const ev = evFactores[f.id]
-      const id = ev ? ev.importancia_decisor : 1
-      if (!calcularIR(matrizIR, f.importancia_sugerida, id).relevante) return n
+      if (!esRelevante(f, evFactores, matrizIR)) return n
       return n + f.subfactores.filter(s => evSubfactores[s.id] === undefined).length
     }, 0)
   }
@@ -149,8 +142,8 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
     setError(null)
     try {
       const factoresPayload = factores.map(f => {
-        const ev = evFactores[f.id] || { importancia_decisor: 1, alcance_elegido: f.alcance !== 'Ambos' ? f.alcance : 'Interno' }
-        const ir = calcularIR(matrizIR, f.importancia_sugerida, ev.importancia_decisor)
+        // Un factor que el decisor no tocó se envía con la importancia mínima.
+        const ev = evFactores[f.id] || { importancia_decisor: 1 }
         return {
           factor_id: f.id,
           importancia_decisor: ev.importancia_decisor,
@@ -158,7 +151,7 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
           // formulario muestra 'Interno' preseleccionado, así que se manda ese
           // mismo valor en lugar de null (que el backend trataba como Externo).
           alcance_elegido: f.alcance === 'Ambos' ? (ev.alcance_elegido || 'Interno') : null,
-          subfactores: ir.relevante
+          subfactores: esRelevante(f, evFactores, matrizIR)
             ? f.subfactores.map(s => ({
                 subfactor_id: s.id,
                 valor: evSubfactores[s.id] ?? 1,
@@ -171,12 +164,7 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
       // para que queden consultables en el historial y no solo como texto (RF-02)
       const payload = {
         nombre: nombreEvaluacion(software),
-        software_nombre: software.nombre,
-        version: software.version,
-        licencia: software.licencia,
-        proveedor: software.proveedor,
-        organizacion: software.organizacion,
-        evaluador: software.evaluador,
+        ...softwareAPayload(software),
         factores: factoresPayload,
       }
       const res = editando
@@ -205,22 +193,15 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
     onFinEdicion?.()
   }
 
-  const subtitles = [
-    'Identifique el producto que va a analizar.',
-    'Ajuste la importancia de cada factor según su organización.',
-    'Evalúe el cumplimiento de los subfactores para cada factor relevante.',
-    'Resultado del análisis FODA y recomendación final.',
-  ]
-
   const titulo = step > 0 && software.nombre
-    ? `Evaluación: ${[software.nombre, software.version].filter(Boolean).join(' ')}`
+    ? `Evaluación: ${nombreCorto(software)}`
     : 'Nueva Evaluación'
 
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
         <h1 className="page-title">{titulo}</h1>
-        <p className="page-subtitle" style={{ marginBottom: 0 }}>{subtitles[step]}</p>
+        <p className="page-subtitle" style={{ marginBottom: 0 }}>{SUBTITULOS[step]}</p>
       </div>
 
       {editando && (

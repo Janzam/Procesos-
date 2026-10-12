@@ -49,7 +49,7 @@ contenedores.
 
 ```bash
 git clone https://github.com/Janzam/Procesos-.git
-cd Procesos-
+cd "Procesos-/GUIOSPRO_FLOSS-main 2"
 docker compose up --build
 ```
 
@@ -93,7 +93,7 @@ docker compose up -d
 ```
 
 La clave se obtiene en [console.anthropic.com](https://console.anthropic.com/). El
-asistente nunca interviene en el cálculo: el contraste de criterios, el análisis de
+asistente nunca interviene en el cálculo: el diagnóstico del resultado, el análisis de
 sensibilidad y el conjunto mínimo de cambios se resuelven en el servidor sin él.
 
 ---

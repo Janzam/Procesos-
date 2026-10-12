@@ -1,13 +1,12 @@
 # origen: nuevo | cambio: no existía en el sistema original (persistencia de evaluaciones)
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from .models import Evaluacion, EvaluacionFactor, EvaluacionSubfactor
-from .serializers import (
-    EvaluacionCreateSerializer, EvaluacionListSerializer, CAMPOS_SOFTWARE,
-)
+from .models import Evaluacion, EvaluacionFactor, EvaluacionSubfactor, CAMPOS_SOFTWARE
+from .serializers import EvaluacionCreateSerializer, EvaluacionListSerializer
 from factores.models import Factor, Subfactor
 from recomendaciones.services import (
     calcular_resultado_evaluacion, calcular_resultados_evaluaciones,
@@ -78,6 +77,24 @@ def _escribir_respuestas(evaluacion, data, factores_db, subfactores_db):
     ])
 
 
+def _validar_peticion(request):
+    """
+    Valida el cuerpo de una creación o edición y devuelve
+    (datos, factores_por_id, subfactores_por_id).
+
+    Los errores se lanzan como ValidationError: DRF los convierte en un 400 con el
+    mismo cuerpo que antes devolvían las vistas a mano.
+    """
+    serializer = EvaluacionCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    factores_db, subfactores_db, errores = _validar_factores(data)
+    if errores:
+        raise ValidationError({'factores': errores})
+    return data, factores_db, subfactores_db
+
+
 class EvaluacionListCreateView(APIView):
     def get(self, request):
         evaluaciones = list(Evaluacion.objects.all())
@@ -90,14 +107,7 @@ class EvaluacionListCreateView(APIView):
         return Response(data)
 
     def post(self, request):
-        serializer = EvaluacionCreateSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        data = serializer.validated_data
-
-        factores_db, subfactores_db, errores = _validar_factores(data)
-        if errores:
-            return Response({'factores': errores}, status=status.HTTP_400_BAD_REQUEST)
+        data, factores_db, subfactores_db = _validar_peticion(request)
 
         # Todo o nada: si algo falla a mitad del guardado no queda una evaluación
         # incompleta en la base de datos.
@@ -141,9 +151,10 @@ class DashboardView(APIView):
             dia = ev.creado_en.date().isoformat()
             por_dia[dia] = por_dia.get(dia, 0) + 1
 
+            relevantes = sum(1 for f in res["factores"] if f["relevante"])
+            relevantes_total += relevantes
+
             for f in res["factores"]:
-                if f["relevante"]:
-                    relevantes_total += 1
                 p = f["ponderacion_global"]
                 if p is not None:
                     ponderaciones.append(p)
@@ -163,7 +174,7 @@ class DashboardView(APIView):
                 recientes.append({
                     "id": ev.id, "nombre": ev.nombre, "creado_en": ev.creado_en,
                     "recomendacion_codigo": cod or None,
-                    "relevantes": sum(1 for f in res["factores"] if f["relevante"]),
+                    "relevantes": relevantes,
                 })
 
         problemas_frecuentes = sorted(frecuencia_problemas.values(), key=lambda x: -x["veces"])[:8]
@@ -187,44 +198,34 @@ class DashboardView(APIView):
 class EvaluacionDetailView(APIView):
     def get(self, request, pk):
         evaluacion = get_object_or_404(Evaluacion, pk=pk)
+        # Valor y procedencia de cada respuesta salen de una sola consulta.
+        respuestas = list(evaluacion.subfactores_eval.values_list('subfactor_id', 'valor', 'origen'))
         return Response({
             "id": evaluacion.id,
             "nombre": evaluacion.nombre,
             "creado_en": evaluacion.creado_en,
-            "software": {c: getattr(evaluacion, c) for c in CAMPOS_SOFTWARE},
+            "software": evaluacion.datos_software(),
             "resultado": calcular_resultado_evaluacion(evaluacion),
             # Las respuestas tal como las dio el decisor. Son lo que necesita el
             # asistente para reabrir la evaluación y poder editarla.
             "respuestas": {
                 "factores": {
-                    str(ef.factor_id): {
-                        "importancia_decisor": ef.importancia_decisor,
-                        "alcance_elegido": ef.alcance_elegido,
+                    str(factor_id): {
+                        "importancia_decisor": importancia,
+                        "alcance_elegido": alcance,
                     }
-                    for ef in evaluacion.factores_eval.all()
+                    for factor_id, importancia, alcance in evaluacion.factores_eval.values_list(
+                        'factor_id', 'importancia_decisor', 'alcance_elegido')
                 },
-                "subfactores": {
-                    str(sid): valor
-                    for sid, valor in evaluacion.subfactores_eval.values_list('subfactor_id', 'valor')
-                },
-                "origenes": {
-                    str(sid): origen
-                    for sid, origen in evaluacion.subfactores_eval.values_list('subfactor_id', 'origen')
-                },
+                "subfactores": {str(sid): valor for sid, valor, _ in respuestas},
+                "origenes": {str(sid): origen for sid, _, origen in respuestas},
             },
         })
 
     def put(self, request, pk):
         """Reemplaza los datos y las respuestas de una evaluación ya guardada."""
         evaluacion = get_object_or_404(Evaluacion, pk=pk)
-        serializer = EvaluacionCreateSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        data = serializer.validated_data
-
-        factores_db, subfactores_db, errores = _validar_factores(data)
-        if errores:
-            return Response({'factores': errores}, status=status.HTTP_400_BAD_REQUEST)
+        data, factores_db, subfactores_db = _validar_peticion(request)
 
         with transaction.atomic():
             evaluacion.nombre = data['nombre']
@@ -286,9 +287,8 @@ class PlanMinimoView(APIView):
     def post(self, request, pk):
         evaluacion = get_object_or_404(Evaluacion, pk=pk)
         plan = plan_minimo(evaluacion)
-        software = {c: getattr(evaluacion, c) for c in CAMPOS_SOFTWARE}
         try:
-            plan = {**plan, "narracion": ia.redactar_plan(software, plan)}
+            plan = {**plan, "narracion": ia.redactar_plan(evaluacion.datos_software(), plan)}
         except ia.IANoDisponible as e:
             # El plan determinista se entrega igualmente: el asistente es opcional.
             plan = {**plan, "narracion": None, "narracion_error": str(e)}
@@ -305,9 +305,8 @@ class InformeEjecutivoView(APIView):
     def post(self, request, pk):
         evaluacion = get_object_or_404(Evaluacion, pk=pk)
         resultado = calcular_resultado_evaluacion(evaluacion)
-        software = {c: getattr(evaluacion, c) for c in CAMPOS_SOFTWARE}
         try:
-            texto = ia.redactar_informe(software, resultado)
+            texto = ia.redactar_informe(evaluacion.datos_software(), resultado)
         except ia.IANoDisponible as e:
             return Response({"detail": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 

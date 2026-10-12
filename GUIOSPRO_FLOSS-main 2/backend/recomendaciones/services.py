@@ -329,42 +329,29 @@ def resolver(inst: dict) -> dict:
     for f in inst["factores"]:
         ir = calcular_importancia_relativa(f["importancia_sugerida"], f["importancia_decisor"])
 
-        if not ir["relevante"]:
-            factores_resultado.append({
-                "factor_id": f["factor_id"],
-                "factor_nombre": f["factor_nombre"],
-                "dimension": f["dimension"],
-                "ir_etiqueta": ir["etiqueta"],
-                "relevante": False,
-                "ponderacion_global": None,
-                "foda_categoria": None,
-                "foda_color": None,
-                "alcance": None,
-                "cobertura": None,
-                "subfactores_sin_conocer": 0,
-                "subfactores_totales": len(f["valores"]),
-            })
-            continue
+        # Un factor irrelevante no se pondera ni se clasifica: queda con todo a None.
+        alcance = ponderacion = None
+        foda = {"categoria": None, "color": None}
+        p = {"cobertura": None, "subfactores_sin_conocer": 0,
+             "subfactores_totales": len(f["valores"])}
 
-        alcance = resolver_alcance(f["alcance_factor"], f["alcance_elegido"])
-        p = ponderar(f["valores"])
-        ponderacion = p["ponderacion"]
-
-        if ponderacion is not None:
-            foda = clasificar_foda(ponderacion, alcance)
-            items_para_recomendacion.append({
-                "ir_etiqueta": ir["etiqueta"],
-                "foda_categoria": foda["categoria"],
-            })
-        else:
-            foda = {"categoria": None, "color": None}
+        if ir["relevante"]:
+            alcance = resolver_alcance(f["alcance_factor"], f["alcance_elegido"])
+            p = ponderar(f["valores"])
+            ponderacion = p["ponderacion"]
+            if ponderacion is not None:
+                foda = clasificar_foda(ponderacion, alcance)
+                items_para_recomendacion.append({
+                    "ir_etiqueta": ir["etiqueta"],
+                    "foda_categoria": foda["categoria"],
+                })
 
         factores_resultado.append({
             "factor_id": f["factor_id"],
             "factor_nombre": f["factor_nombre"],
             "dimension": f["dimension"],
             "ir_etiqueta": ir["etiqueta"],
-            "relevante": True,
+            "relevante": ir["relevante"],
             "ponderacion_global": round(ponderacion, 2) if ponderacion is not None else None,
             "foda_categoria": foda["categoria"],
             "foda_color": foda["color"],
@@ -567,7 +554,6 @@ def respuestas_determinantes(evaluacion) -> dict:
         indices.append(posicion[r["factor_id"]])
         posicion[r["factor_id"]] += 1
 
-    valores_originales = {f["factor_id"]: list(f["valores"]) for f in inst["factores"]}
     por_id = {f["factor_id"]: f for f in inst["factores"]}
 
     determinantes = []
@@ -578,7 +564,8 @@ def respuestas_determinantes(evaluacion) -> dict:
         original = r["valor"]
         # Se prueba cualquier otra valoración posible, no solo la contigua: limitar
         # el análisis a un nivel dejaría escapar casos evidentes (pasar de 1 a 2 no
-        # cruza el umbral, pero pasar de 1 a 3 sí).
+        # cruza el umbral, pero pasar de 1 a 3 sí). Cada alteración se deshace en
+        # cuanto se resuelve, de modo que la instantánea queda siempre como estaba.
         for nuevo in sorted(range(1, 5), key=lambda v: abs(v - original)):
             if nuevo == original:
                 continue
@@ -596,10 +583,6 @@ def respuestas_determinantes(evaluacion) -> dict:
                     "recomendacion_resultante": codigo,
                 })
                 break
-
-    # deja la instantánea como estaba
-    for fid, vs in valores_originales.items():
-        por_id[fid]["valores"] = vs
 
     return {
         "recomendacion_actual": base,

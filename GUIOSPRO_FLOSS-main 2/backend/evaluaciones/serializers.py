@@ -1,6 +1,20 @@
 # origen: nuevo | cambio: no existía en el sistema original (persistencia de evaluaciones)
 from rest_framework import serializers
-from .models import Evaluacion, EvaluacionFactor, EvaluacionSubfactor
+from .models import Evaluacion, EvaluacionSubfactor
+
+
+class DatosSoftwareSerializer(serializers.Serializer):
+    """
+    Datos del software evaluado (RF-02). Todos opcionales. Los comparten la
+    creación/edición de evaluaciones y la petición de sugerencias al asistente,
+    de modo que los límites de cada campo se declaran una sola vez.
+    """
+    software_nombre = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+    version = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
+    licencia = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
+    proveedor = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+    organizacion = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+    evaluador = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
 
 
 class EvaluacionSubfactorInputSerializer(serializers.Serializer):
@@ -20,19 +34,8 @@ class EvaluacionFactorInputSerializer(serializers.Serializer):
     subfactores = EvaluacionSubfactorInputSerializer(many=True, required=False)
 
 
-# Datos del software evaluado (RF-02): opcionales y guardados por separado
-CAMPOS_SOFTWARE = ['software_nombre', 'version', 'licencia',
-                   'proveedor', 'organizacion', 'evaluador']
-
-
-class EvaluacionCreateSerializer(serializers.Serializer):
+class EvaluacionCreateSerializer(DatosSoftwareSerializer):
     nombre = serializers.CharField(max_length=250)
-    software_nombre = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
-    version = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
-    licencia = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
-    proveedor = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
-    organizacion = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
-    evaluador = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
     factores = EvaluacionFactorInputSerializer(many=True)
 
 

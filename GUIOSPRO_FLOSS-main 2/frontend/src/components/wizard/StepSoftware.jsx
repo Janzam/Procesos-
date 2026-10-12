@@ -1,4 +1,6 @@
 // Paso inicial: datos del software a evaluar (todos opcionales).
+import { nombreCorto, nombreEvaluacion } from '../../utils/software.js'
+
 const LICENCIAS = [
   'GPL / AGPL',
   'LGPL',
@@ -10,21 +12,11 @@ const LICENCIAS = [
   'Propietaria / mixta',
 ]
 
-export const SOFTWARE_VACIO = {
-  nombre: '',
-  version: '',
-  licencia: '',
-  proveedor: '',
-  organizacion: '',
-  evaluador: '',
-}
-
-function Campo({ etiqueta, pista, children }) {
+function Campo({ etiqueta, children }) {
   return (
     <label className="campo">
       <span className="campo-etiqueta">{etiqueta}</span>
       {children}
-      {pista && <span className="campo-pista">{pista}</span>}
     </label>
   )
 }
@@ -34,10 +26,8 @@ export default function StepSoftware({ software, onChange, onStart }) {
 
   // El mismo nombre que llevará la evaluación en el historial. Se muestra
   // mientras se escribe para que no haya sorpresas después.
-  const base = [software.nombre, software.version].filter(Boolean).join(' ').trim()
-  const titulo = base
-    ? (software.organizacion ? `${base} — ${software.organizacion}` : base)
-    : 'Evaluación sin nombre'
+  const base = nombreCorto(software)
+  const titulo = nombreEvaluacion(software)
 
   return (
     <div className="sw-layout">

@@ -1,5 +1,5 @@
 // origen: main.py (Tab 1) | cambio: tarjetas por dimensión + selector de 4 opciones por factor
-import { calcularIR } from '../../api/guiosad.js'
+import { calcularIR, esRelevante } from '../../api/guiosad.js'
 
 const NIVELES = ['Irrelevante', 'Opcional', 'Importante', 'Fundamental']
 const CORTOS = ['Irrelev.', 'Opcional', 'Important.', 'Fundam.']
@@ -28,7 +28,7 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
 
   const idDe = f => evaluacion[f.id]?.importancia_decisor ?? 1
   const ajustados = factores.filter(f => evaluacion[f.id]).length
-  const fuera = factores.filter(f => !calcularIR(matrizIR, f.importancia_sugerida, idDe(f)).relevante).length
+  const fuera = factores.filter(f => !esRelevante(f, evaluacion, matrizIR)).length
   const pct = factores.length ? Math.round((ajustados / factores.length) * 100) : 0
 
   return (

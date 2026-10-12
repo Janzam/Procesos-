@@ -1,9 +1,12 @@
 // origen: nuevo | cambio: diagrama FODA tipo "flor" de 4 pétalos (F D / O A) con los factores evaluados
+import { FODA_PLURAL } from '../utils/recomendacion.js'
+
+// El orden es el de la flor (F D / O A), distinto del de la tabla exportada.
 const PETALOS = [
-  { cat: 'Fortaleza',   label: 'Fortalezas',    cls: 'foda-petal-f' },
-  { cat: 'Debilidad',   label: 'Debilidades',   cls: 'foda-petal-d' },
-  { cat: 'Oportunidad', label: 'Oportunidades', cls: 'foda-petal-o' },
-  { cat: 'Amenaza',     label: 'Amenazas',      cls: 'foda-petal-a' },
+  { cat: 'Fortaleza',   cls: 'foda-petal-f' },
+  { cat: 'Debilidad',   cls: 'foda-petal-d' },
+  { cat: 'Oportunidad', cls: 'foda-petal-o' },
+  { cat: 'Amenaza',     cls: 'foda-petal-a' },
 ]
 
 export default function FodaFlower({ factores }) {
@@ -24,7 +27,7 @@ export default function FodaFlower({ factores }) {
           return (
             <div key={p.cat} className={`foda-petal ${p.cls}`}>
               <div className="foda-petal-head">
-                <span className="foda-petal-title">{p.label}</span>
+                <span className="foda-petal-title">{FODA_PLURAL[p.cat]}</span>
                 <span className="foda-petal-count">{items.length}</span>
               </div>
               {items.length === 0 ? (

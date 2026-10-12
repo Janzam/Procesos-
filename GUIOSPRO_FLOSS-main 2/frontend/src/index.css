@@ -20,7 +20,6 @@
   --sidebar-w:     230px;
   --radius:        10px;
   --radius-sm:     6px;
-  --shadow:        0 4px 24px rgba(0,0,0,0.4);
   --shadow-sutil:  0 1px 2px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.18);
   --linea-tenue:   rgba(255,255,255,0.05);
   --chart-grid:    rgba(255,255,255,0.08);
@@ -61,6 +60,8 @@
   --foda-d: #fdae3b;
   --foda-o: #3a8fd9;
   --foda-a: #9c1a9e;
+  --shadow-sutil:  0 1px 2px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06);
+  --linea-tenue:   rgba(15,23,42,0.06);
 }
 
 /* Botones, toggles y pistas en claro */
@@ -71,9 +72,6 @@
 [data-theme="light"] .error-msg {
   background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3); color: #b91c1c;
 }
-
-/* Banner de recomendación en claro: fondo suave + texto oscuro del mismo tono */
-/* El banner usa los tokens del tema, así que no necesita sobrecargas en claro. */
 
 /* Badges en claro */
 [data-theme="light"] .badge-ir-irrelevante  { background:#e2e8f0; color:#475569; }
@@ -94,10 +92,6 @@
 [data-theme="light"] .topbar {
   background: rgba(248,250,252,0.9);
 }
-[data-theme="light"] {
-  --shadow-sutil: 0 1px 2px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06);
-  --linea-tenue:  rgba(15,23,42,0.06);
-}
 [data-theme="light"] .card {
   background: rgba(255,255,255,0.9);
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
@@ -112,7 +106,6 @@
 [data-theme="light"] .sidebar-item { color: #475569; }
 [data-theme="light"] .sidebar-item:hover { background: rgba(99,102,241,0.08); color: #0f172a; }
 [data-theme="light"] .sidebar-logo-text { color: #0f172a; }
-[data-theme="light"] .historial-item:hover { background: rgba(0,0,0,0.04); }
 
 /* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -202,7 +195,9 @@ body {
 
 /* ── Stepper ─────────────────────────────────────────────── */
 .stepper { display: flex; align-items: center; margin-bottom: 28px; }
-.stepper-step { display: flex; align-items: center; gap: 8px; }
+/* Cada paso reparte el ancho, salvo el último, que solo ocupa lo suyo. */
+.stepper-step { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.stepper-step:last-child { flex: unset; }
 .stepper-circle {
   width: 30px; height: 30px; border-radius: 50%; font-size: 13px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -211,7 +206,7 @@ body {
 .stepper-circle.done     { background: var(--brand); color: #fff; }
 .stepper-circle.active   { background: var(--brand); color: #fff; box-shadow: 0 0 0 4px var(--brand-glow); }
 .stepper-circle.pending  { background: transparent; border: 2px solid var(--text-muted); color: var(--text-muted); }
-.stepper-label { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.stepper-label { font-size: 13px; font-weight: 600; white-space: nowrap; margin-left: 8px; }
 .stepper-label.done   { color: var(--brand); }
 .stepper-label.active { color: var(--text-primary); }
 .stepper-label.pending{ color: var(--text-muted); }
@@ -239,7 +234,6 @@ body {
   padding: 14px 18px; display: flex; align-items: center; gap: 10px;
 }
 .card-header-title { font-size: 14px; font-weight: 700; color: #fff; }
-.card-body { padding: 0 0 8px; }
 
 /* ── Aviso de estado al inicio de un paso ────────────────── */
 .paso-aviso {
@@ -351,7 +345,7 @@ body {
   color: var(--text-muted); transition: color 0.15s, background 0.15s;
 }
 /* El :hover se excluye del botón activo para que no pise su color de nivel
-   (un selector con pseudoclase gana a las clases badge-ir-* que lo tiñen). */
+   (un selector con pseudoclase gana a las clases seg-n* que lo tiñen). */
 .seg-btn:not(.seg-activo):hover { color: var(--text-primary); }
 .seg-activo {
   background: var(--seg-active); color: var(--brand); font-weight: 600;
@@ -444,7 +438,7 @@ body {
 }
 .sub-panel-titulo { font-size: 19px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
 .sub-panel-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 5px; }
-.sub-panel-acciones { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.sub-panel-acciones { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .sub-panel-cont {
   font-size: 24px; font-weight: 700; color: var(--text-primary); line-height: 1;
   white-space: nowrap; font-variant-numeric: tabular-nums;
@@ -652,19 +646,6 @@ body {
 .page-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
 .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
 
-/* Ficha con los datos del software evaluado (historial) */
-.ficha-software {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 10px 22px; margin-bottom: 20px; padding: 14px 18px;
-  border: 1px solid var(--border-glass); border-radius: var(--radius);
-  background: var(--bg-card);
-}
-.ficha-etiqueta {
-  display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
-  text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;
-}
-.ficha-valor { font-size: 13px; color: var(--text-primary); }
-
 /* ── Error ───────────────────────────────────────────────── */
 .error-msg {
   background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3);
@@ -695,7 +676,6 @@ body {
 
 /* ── Asistente con IA (RF-17, RF-18, RF-24) ──────────────────────── */
 
-.sub-panel-acciones { display: flex; align-items: center; gap: 12px; }
 /* La escala y, si la hay, la sugerencia del asistente ocupan la misma columna. */
 .sub-controles { display: flex; flex-direction: column; gap: 9px; align-items: stretch; }
 
@@ -738,11 +718,6 @@ body {
 }
 .ia-texto p { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 10px; }
 .ia-texto p:last-child { margin-bottom: 0; }
-.ia-nota { font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.55; }
-
-@media (max-width: 760px) {
-  .ia-sug { max-width: none; }
-}
 
 /* ── Análisis del resultado ──────────────────────────────────────── */
 
@@ -1003,10 +978,12 @@ body {
 .hist-rejilla {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;
 }
+/* La tarjeta no es un botón entero: el cuerpo abre el detalle y el pie lleva
+   las acciones, que no deben dispararse al pulsar en cualquier sitio. */
 .hist-tarjeta {
   position: relative; overflow: hidden; text-align: left; font-family: inherit;
   display: flex; flex-direction: column; gap: 9px;
-  padding: 16px 18px 16px 20px; cursor: pointer;
+  padding: 0; cursor: pointer;
   border: 1px solid var(--border-glass); border-radius: var(--radius);
   background: var(--bg-card); box-shadow: var(--shadow-sutil);
   transition: border-color 0.15s, transform 0.15s;
@@ -1032,7 +1009,7 @@ body {
   border-radius: var(--radius); overflow: hidden;
 }
 .ficha-dato { display: flex; flex-direction: column; gap: 3px; padding: 13px 16px; background: var(--bg-card); }
-.ficha-etiqueta { font-size: 10.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.ficha-etiqueta { font-size: 10.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
 .ficha-valor { font-size: 13px; color: var(--text-primary); }
 
 .hist-saltos { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--linea-tenue); }
@@ -1096,7 +1073,6 @@ body {
 
 .campo { display: flex; flex-direction: column; gap: 6px; }
 .campo-etiqueta { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-.campo-pista { font-size: 11px; color: var(--text-muted); }
 
 .field-input {
   width: 100%; padding: 10px 13px; font-family: inherit; font-size: 13px;
@@ -1139,9 +1115,6 @@ select.field-input { cursor: pointer; }
 
 .hist-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* La tarjeta deja de ser un botón entero: el cuerpo abre el detalle y el pie
-   lleva las acciones, que no deben dispararse al pulsar en cualquier sitio. */
-.hist-tarjeta { padding: 0; display: flex; flex-direction: column; }
 .hist-tarjeta-cuerpo {
   display: flex; flex-direction: column; gap: 9px; text-align: left;
   padding: 16px 18px 14px 20px; cursor: pointer;

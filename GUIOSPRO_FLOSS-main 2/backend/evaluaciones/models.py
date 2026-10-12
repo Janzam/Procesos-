@@ -2,6 +2,11 @@
 from django.db import models
 from factores.models import Factor, Subfactor
 
+# Datos del software evaluado (RF-02): opcionales y guardados por separado.
+# Es la única lista de esos campos; serializadores y vistas la reutilizan.
+CAMPOS_SOFTWARE = ['software_nombre', 'version', 'licencia',
+                   'proveedor', 'organizacion', 'evaluador']
+
 
 class Evaluacion(models.Model):
     # Nombre para mostrar; se compone a partir de los datos del software
@@ -20,6 +25,10 @@ class Evaluacion(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.creado_en:%Y-%m-%d})"
+
+    def datos_software(self) -> dict:
+        """Los campos de identificación del software, tal como los consume la API y el asistente."""
+        return {c: getattr(self, c) for c in CAMPOS_SOFTWARE}
 
     class Meta:
         ordering = ['-creado_en']

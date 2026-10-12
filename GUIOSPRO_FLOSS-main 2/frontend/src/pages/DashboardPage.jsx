@@ -5,12 +5,9 @@
 // lleva su etiqueta visible, sin depender de un tooltip para poder leerse.
 import { useState, useEffect } from 'react'
 import { getDashboard } from '../api/guiosad.js'
+import { REC_V } from '../utils/recomendacion.js'
 
-const REC = {
-  A: { letra: 'A', corto: 'Adoptar',              clase: 'v-a' },
-  B: { letra: 'B', corto: 'Adoptar con reservas', clase: 'v-b' },
-  C: { letra: 'C', corto: 'No adoptar todavía',   clase: 'v-c' },
-}
+const REC_CORTO = { A: 'Adoptar', B: 'Adoptar con reservas', C: 'No adoptar todavía' }
 const ORDEN = ['A', 'B', 'C']
 
 const DIM_CLASE = { 'Tecnológica': 'dim-tec', 'Organizacional': 'dim-org', 'Económica': 'dim-eco' }
@@ -43,13 +40,13 @@ function Veredictos({ rec, total }) {
       </header>
 
       <div className="apilada" role="img"
-           aria-label={ORDEN.map(k => `${REC[k].corto}: ${rec[k]}`).join('. ')}>
+           aria-label={ORDEN.map(k => `${REC_CORTO[k]}: ${rec[k]}`).join('. ')}>
         {visibles.map(k => (
           <div
             key={k}
-            className={`apilada-seg ${REC[k].clase}`}
+            className={`apilada-seg ${REC_V[k]}`}
             style={{ flexGrow: rec[k] }}
-            title={`${REC[k].corto}: ${rec[k]} de ${total}`}
+            title={`${REC_CORTO[k]}: ${rec[k]} de ${total}`}
           >
             <span className="apilada-cifra">{pct(rec[k], total)} %</span>
           </div>
@@ -59,9 +56,9 @@ function Veredictos({ rec, total }) {
       <ul className="leyenda">
         {ORDEN.map(k => (
           <li key={k} className={rec[k] ? '' : 'leyenda-cero'}>
-            <span className={`leyenda-punto ${REC[k].clase}`} aria-hidden="true" />
-            <span className="leyenda-letra">{REC[k].letra}</span>
-            <span className="leyenda-texto">{REC[k].corto}</span>
+            <span className={`leyenda-punto ${REC_V[k]}`} aria-hidden="true" />
+            <span className="leyenda-letra">{k}</span>
+            <span className="leyenda-texto">{REC_CORTO[k]}</span>
             <span className="leyenda-valor">{rec[k]}</span>
           </li>
         ))}
@@ -203,7 +200,7 @@ export default function DashboardPage({ onNavigate }) {
       {/* Titular */}
       <section className={`titular titular-${nivel}`}>
         <div className="titular-marca" aria-hidden="true">
-          {nivel === 'a' ? 'A' : nivel === 'b' ? 'B' : 'C'}
+          {nivel.toUpperCase()}
         </div>
         <div className="titular-cuerpo">
           <h2 className="titular-texto">{titular}</h2>

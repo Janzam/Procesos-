@@ -14,7 +14,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(AQUI))
 
 from recomendaciones import services as sv                        # noqa: E402
-from recomendaciones.catalogo_local import cargar, Fac, EF, Eva   # noqa: E402
+from recomendaciones.catalogo_local import cargar, EF, Eva   # noqa: E402
 
 fallos = []
 
@@ -64,7 +64,6 @@ de_un_subfactor = [f.nombre for f in FACTORES
 ok(len(de_un_subfactor) == 5, 'cinco factores dependen de una sola pregunta', ', '.join(de_un_subfactor))
 
 # en esos factores, "Desconozco" (2) y "No cumple" (1) dan el mismo veredicto
-uno = next(f for f in FACTORES if f.nombre == 'Mantenibilidad')
 a = sv.clasificar_foda(sv.calcular_ponderacion_global([1]), 'Externo')
 b = sv.clasificar_foda(sv.calcular_ponderacion_global([2]), 'Externo')
 ok(a['categoria'] == b['categoria'] == 'Amenaza',
@@ -148,10 +147,9 @@ except ValueError as e:
 print('\n=== el asistente con IA no participa en el calculo ===')
 # La garantia mas importante del diseno: services.py no importa ia.py. Si alguien
 # lo hiciera, el motor dejaria de ser determinista y esta prueba lo detecta.
-_motor = open(os.path.join(AQUI, 'services.py'), encoding='utf-8').read()
-ok('import ia' not in _motor and 'from . import ia' not in _motor and 'from .ia' not in _motor,
+ok('import ia' not in _motor_txt and 'from . import ia' not in _motor_txt and 'from .ia' not in _motor_txt,
    'services.py no importa el modulo de IA')
-ok('anthropic' not in _motor, 'services.py no menciona al proveedor del modelo')
+ok('anthropic' not in _motor_txt, 'services.py no menciona al proveedor del modelo')
 
 # El modulo de IA se puede cargar sin Django configurado solo hasta el punto de
 # necesitar los ajustes, asi que se prueba su logica pura por separado.

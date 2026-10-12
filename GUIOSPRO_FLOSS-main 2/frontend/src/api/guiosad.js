@@ -1,60 +1,54 @@
 // origen: guiosad.py (get_suggested_importances, get_scopes) | cambio: datos ahora vienen del backend REST
+import { SOFTWARE_VACIO, softwareAPayload } from '../utils/software.js'
 
 const BASE = '/api'
 
-export async function getFactores() {
-  const res = await fetch(`${BASE}/factores/`)
-  if (!res.ok) throw new Error('Error al cargar factores')
-  return res.json()
+// Una petición a la API. Un fallo HTTP se convierte en un Error con el mensaje
+// indicado; una respuesta sin cuerpo (204) devuelve undefined.
+async function pedir(ruta, mensajeError, opciones) {
+  const res = await fetch(`${BASE}${ruta}`, opciones)
+  if (!res.ok) throw new Error(mensajeError)
+  return res.status === 204 ? undefined : res.json()
 }
 
-export async function crearEvaluacion(payload) {
-  const res = await fetch(`${BASE}/evaluaciones/`, {
-    method: 'POST',
+function conCuerpo(method, datos) {
+  return {
+    method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error('Error al guardar evaluación')
-  return res.json()
+    body: JSON.stringify(datos),
+  }
 }
 
-export async function actualizarEvaluacion(id, payload) {
-  const res = await fetch(`${BASE}/evaluaciones/${id}/`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error('Error al guardar los cambios')
-  return res.json()
+export function getFactores() {
+  return pedir('/factores/', 'Error al cargar factores')
 }
 
-export async function eliminarEvaluacion(id) {
-  const res = await fetch(`${BASE}/evaluaciones/${id}/`, { method: 'DELETE' })
-  if (!res.ok) throw new Error('Error al eliminar la evaluación')
+export function crearEvaluacion(payload) {
+  return pedir('/evaluaciones/', 'Error al guardar evaluación', conCuerpo('POST', payload))
 }
 
-export async function getHistorial() {
-  const res = await fetch(`${BASE}/evaluaciones/`)
-  if (!res.ok) throw new Error('Error al cargar historial')
-  return res.json()
+export function actualizarEvaluacion(id, payload) {
+  return pedir(`/evaluaciones/${id}/`, 'Error al guardar los cambios', conCuerpo('PUT', payload))
 }
 
-export async function getDashboard() {
-  const res = await fetch(`${BASE}/evaluaciones/dashboard/`)
-  if (!res.ok) throw new Error('Error al cargar el dashboard')
-  return res.json()
+export function eliminarEvaluacion(id) {
+  return pedir(`/evaluaciones/${id}/`, 'Error al eliminar la evaluación', { method: 'DELETE' })
 }
 
-export async function getEvaluacion(id) {
-  const res = await fetch(`${BASE}/evaluaciones/${id}/`)
-  if (!res.ok) throw new Error('Error al cargar evaluación')
-  return res.json()
+export function getHistorial() {
+  return pedir('/evaluaciones/', 'Error al cargar historial')
 }
 
-export async function getMatrizIR() {
-  const res = await fetch(`${BASE}/recomendaciones/matriz-ir/`)
-  if (!res.ok) throw new Error('Error al cargar la matriz de importancia relativa')
-  return res.json()
+export function getDashboard() {
+  return pedir('/evaluaciones/dashboard/', 'Error al cargar el dashboard')
+}
+
+export function getEvaluacion(id) {
+  return pedir(`/evaluaciones/${id}/`, 'Error al cargar evaluación')
+}
+
+export function getMatrizIR() {
+  return pedir('/recomendaciones/matriz-ir/', 'Error al cargar la matriz de importancia relativa')
 }
 
 // La fórmula de Importancia Relativa vive SOLO en el backend
@@ -67,30 +61,27 @@ export function calcularIR(matrizIR, importancia_sugerida, importancia_decisor) 
   return fila?.[importancia_decisor - 1] ?? IR_DESCONOCIDA
 }
 
+// Misma regla de relevancia que aplica el backend: un factor que el decisor no
+// tocó se evalúa igualmente con importancia 1.
+export function esRelevante(factor, evaluacionFactores, matrizIR) {
+  const id = evaluacionFactores[factor.id]?.importancia_decisor ?? 1
+  return calcularIR(matrizIR, factor.importancia_sugerida, id).relevante
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Análisis del resultado
 //
-// Las tres funciones leen el resultado que ya calculó la metodología y lo
-// explican: qué factores lo causan, qué respuestas lo deciden y qué haría
-// falta para mejorarlo. Ninguna recalcula nada con otra fórmula.
+// Leen el resultado que ya calculó la metodología y lo explican: qué
+// factores lo causan y qué respuestas lo deciden. Ninguna recalcula nada
+// con otra fórmula. El plan de mejora se pide con pedirPlanNarrado().
 // ─────────────────────────────────────────────────────────────────────
 
-async function pedir(url, mensajeError) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(mensajeError)
-  return res.json()
-}
-
 export function getDiagnostico(id) {
-  return pedir(`${BASE}/evaluaciones/${id}/diagnostico/`, 'Error al analizar el resultado')
+  return pedir(`/evaluaciones/${id}/diagnostico/`, 'Error al analizar el resultado')
 }
 
 export function getDeterminantes(id) {
-  return pedir(`${BASE}/evaluaciones/${id}/determinantes/`, 'Error al calcular las respuestas determinantes')
-}
-
-export function getPlan(id) {
-  return pedir(`${BASE}/evaluaciones/${id}/plan/`, 'Error al calcular el plan de mejora')
+  return pedir(`/evaluaciones/${id}/determinantes/`, 'Error al calcular las respuestas determinantes')
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -101,35 +92,30 @@ export function getPlan(id) {
 // interviene en el cálculo.
 // ─────────────────────────────────────────────────────────────────────
 
-async function enviar(url, datos) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(datos || {}),
-  })
+// El servidor explica en `detail` por qué el asistente no está disponible; ese
+// texto es el que se muestra, de ahí que no sirva pedir() tal cual.
+async function enviar(ruta, datos) {
+  const res = await fetch(`${BASE}${ruta}`, conCuerpo('POST', datos || {}))
   const cuerpo = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(cuerpo.detail || 'El asistente no está disponible')
   return cuerpo
 }
 
 export function getEstadoIA() {
-  return pedir(`${BASE}/recomendaciones/ia/estado/`, 'Error al consultar el estado del asistente')
+  return pedir('/recomendaciones/ia/estado/', 'Error al consultar el estado del asistente')
 }
 
 export function pedirSugerencias(factorId, software) {
-  return enviar(`${BASE}/recomendaciones/ia/sugerencias/`, {
+  return enviar('/recomendaciones/ia/sugerencias/', {
     factor_id: factorId,
-    software_nombre: software?.nombre || '',
-    version: software?.version || '',
-    licencia: software?.licencia || '',
-    proveedor: software?.proveedor || '',
+    ...softwareAPayload(software || SOFTWARE_VACIO),
   })
 }
 
 export function pedirInforme(id) {
-  return enviar(`${BASE}/evaluaciones/${id}/informe/`)
+  return enviar(`/evaluaciones/${id}/informe/`)
 }
 
 export function pedirPlanNarrado(id) {
-  return enviar(`${BASE}/evaluaciones/${id}/plan/`)
+  return enviar(`/evaluaciones/${id}/plan/`)
 }

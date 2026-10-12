@@ -1,17 +1,10 @@
 // origen: main.py (Tab 2) | cambio: lista de progreso + selector de 4 opciones y avance automático
 import { useState, useRef, useEffect } from 'react'
-import { calcularIR, pedirSugerencias } from '../../api/guiosad.js'
+import { esRelevante, pedirSugerencias } from '../../api/guiosad.js'
 
 // Texto completo de la escala original y su versión corta para los botones
 const NIVELES_SUB = ['No cumple el requisito', 'Desconozco si cumple', 'Cumple parcialmente', 'Cumple el requisito']
 const NIVELES_CORTO = ['No cumple', 'No lo sé', 'Parcial', 'Cumple']
-
-// Misma regla de relevancia que usa el backend: un factor que el decisor no tocó
-// se evalúa igualmente con ID = 1.
-function esRelevante(f, evaluacionFactores, matrizIR) {
-  const id = evaluacionFactores[f.id]?.importancia_decisor ?? 1
-  return calcularIR(matrizIR, f.importancia_sugerida, id).relevante
-}
 
 // Marca con la que setSaltandoA distingue el salto al siguiente factor del
 // salto final a Resultados.

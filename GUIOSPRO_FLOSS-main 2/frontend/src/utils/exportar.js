@@ -1,12 +1,11 @@
-// origen: nuevo | exportación de resultados a PDF (jsPDF) y Excel (SheetJS) generada en el navegador
+// origen: nuevo | exportación de resultados a PDF (jsPDF) y Excel (ExcelJS) generada en el navegador
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import ExcelJS from 'exceljs'
+import { REC_LABEL, FODA_PLURAL } from './recomendacion.js'
 
-const REC_LABEL = { A: 'Adoptar el software', B: 'Adoptar con reservas', C: 'No adoptar todavía' }
 const REC_RGB   = { A: [16, 185, 129], B: [245, 158, 11], C: [239, 68, 68] }
 const FODA_CATS = ['Fortaleza', 'Oportunidad', 'Debilidad', 'Amenaza']
-const FODA_PLURAL = { Fortaleza: 'Fortalezas', Oportunidad: 'Oportunidades', Debilidad: 'Debilidades', Amenaza: 'Amenazas' }
 
 function nombreArchivo(nombre, ext) {
   const base = (nombre || 'evaluacion')
@@ -211,14 +210,7 @@ export async function exportarExcel(nombre, resultado) {
   const hdr = wsR.getRow(r)
   hdr.getCell(2).value = 'Categoría FODA'
   hdr.getCell(3).value = 'Nº de factores'
-  hdr.height = 22
-  ;[2, 3].forEach(c => {
-    const cell = hdr.getCell(c)
-    cell.font = { bold: true, color: { argb: XL.blanco }, size: 10.5 }
-    cell.fill = fill(XL.slate)
-    cell.alignment = { vertical: 'middle', horizontal: 'center' }
-    cell.border = BORDES
-  })
+  estilarCabecera(hdr)
   r++
   FODA_CATS.forEach(c => {
     const row = wsR.getRow(r)

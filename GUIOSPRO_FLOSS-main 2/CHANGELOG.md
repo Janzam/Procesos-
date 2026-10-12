@@ -4,6 +4,83 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v3.1.1 — Limpieza sin cambios de comportamiento (2026-10-12)
+
+Pasada de limpieza sobre todo el código: se retira lo que no se usaba, se reutiliza
+lo que estaba repetido y se simplifica lo que podía decirse más corto. **Ningún
+resultado cambia**: la API devuelve exactamente las mismas respuestas, las pruebas
+del motor y el experimento producen la misma salida y la interfaz se ve igual.
+
+### 🧹 Backend
+
+- `CAMPOS_SOFTWARE` pasa de `serializers.py` a `models.py`, junto a los campos que
+  enumera, y `Evaluacion.datos_software()` sustituye a las tres copias del mismo
+  diccionario que había en las vistas.
+- Nuevo `DatosSoftwareSerializer`: los seis campos del software se declaran una vez
+  y los heredan la creación/edición de evaluaciones y la petición de sugerencias al
+  asistente, que antes los redeclaraba con sus `max_length`.
+- `_validar_peticion()` reúne la validación que `POST` y `PUT` repetían línea a
+  línea. Los errores se lanzan como `ValidationError`: el 400 y su cuerpo son los
+  mismos de antes.
+- El detalle de una evaluación lee valor y procedencia de cada respuesta en una
+  consulta en vez de dos; el panel cuenta los factores relevantes de cada evaluación
+  una vez en vez de dos.
+- `resolver()` construye el resultado de cada factor en un solo bloque en lugar de
+  dos casi idénticos (relevante / irrelevante).
+- `respuestas_determinantes()` deja de restaurar al final una instantánea que ya
+  restauraba tras cada alteración.
+- `ia.disponible()` reutiliza `estado()` en vez de repetir sus tres comprobaciones;
+  el informe ejecutivo deja de citar un recuento de «no concluyentes» que desapareció
+  con el criterio retirado en la v3.0.0 y siempre valía 0.
+- Pruebas del motor: se retiran una variable y una importación sin uso, y
+  `services.py` se lee una vez en lugar de dos. La migración `0006` deja de importar
+  `models`, que no usaba.
+
+### 🧹 Frontend
+
+- Nuevo `utils/software.js` con el estado vacío del formulario, el nombre de la
+  evaluación y la conversión entre los nombres del formulario y los de la API. Antes
+  el nombre se calculaba dos veces (paso inicial y página de evaluación) y la
+  conversión estaba repartida en tres sitios.
+- `api/guiosad.js`: todas las peticiones pasan por un mismo `pedir()`; se retira
+  `getPlan()`, que ninguna pantalla usaba. Nueva `esRelevante()`, que sustituye a las
+  tres copias de la misma regla en factores, subfactores y página de evaluación.
+- `utils/recomendacion.js` gana `REC_V` (color del veredicto) y `FODA_PLURAL`; el
+  panel, el historial, la flor FODA y la exportación los reutilizan en vez de llevar
+  cada uno su tabla. La exportación reutiliza también su propia `estilarCabecera()`
+  en la tabla resumen del Excel.
+- `Stepper`: los estilos en línea pasan a CSS.
+- `index.css`: se retiran la variable `--shadow` y las reglas `.card-body`,
+  `.ficha-software`, `.ia-nota`, `.campo-pista` y `.historial-item`, ninguna
+  referenciada; se funden los selectores definidos dos veces (`.ficha-etiqueta`,
+  `.ficha-valor`, `.hist-tarjeta`, `.sub-panel-acciones` y el bloque de variables del
+  tema claro) conservando el estilo efectivo; y se elimina una regla `@media` que no
+  cambiaba nada.
+
+### 📄 Documentación
+
+- El README de la raíz del repositorio había dejado de ser cierto: enlazaba a
+  `MEJORAS.md` y `MIGRACION_GUIOSAD.md`, retirados en la v2.2.0, y describía un
+  arranque con `makemigrations` que ya no existe. Pasa a ser una portada breve que
+  remite al README del proyecto.
+- El README del proyecto indicaba `cd Procesos-` cuando `docker-compose.yml` está en
+  `Procesos-/GUIOSPRO_FLOSS-main 2`. Se corrige la ruta y se sustituye, aquí y en
+  `.env.example`, una mención al «contraste de criterios» retirado en la v3.0.0.
+
+### ✅ Verificación
+
+- `pruebas_motor.py` y `experimento_instrumento.py`: salida idéntica, byte a byte, a
+  la de antes de la limpieza.
+- Recorrido de extremo a extremo por los trece endpoints sobre SQLite (54
+  peticiones: cinco evaluaciones con veredictos A, B, C y vacío, errores de
+  validación, edición, borrado, panel e historial): las 54 respuestas son idénticas a
+  las de antes.
+- Cliente de la API y utilidades del frontend comprobados en Node con `fetch`
+  simulado: mismas rutas, métodos, cuerpos y mensajes de error que antes.
+- `manage.py check` y `makemigrations --check` sin avisos; `npm run build` sin errores.
+
+---
+
 ## v3.1.0 — Panel, historial y paso inicial rediseñados (2026-10-05)
 
 ### 🐞 Un titular que se contradecía

@@ -6,6 +6,7 @@ from rest_framework import serializers, status
 from .services import matriz_importancia_relativa, NIVELES
 from . import ia
 from factores.models import Factor
+from evaluaciones.serializers import DatosSoftwareSerializer
 
 
 class MatrizIRView(APIView):
@@ -32,12 +33,9 @@ class EstadoIAView(APIView):
         return Response(ia.estado())
 
 
-class SugerenciaInputSerializer(serializers.Serializer):
+class SugerenciaInputSerializer(DatosSoftwareSerializer):
+    """El factor a valorar más los datos del software, los mismos que en una evaluación."""
     factor_id = serializers.IntegerField()
-    software_nombre = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
-    version = serializers.CharField(max_length=50, required=False, allow_blank=True, default='')
-    licencia = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
-    proveedor = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
 
 
 class SugerenciasView(APIView):

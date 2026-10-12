@@ -6,7 +6,7 @@
 # siguen siendo lo unico que la base de datos almacena, y el resultado se deriva de
 # ellas al consultarlas.
 
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
