@@ -27,7 +27,11 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
   }
 
   const idDe = f => evaluacion[f.id]?.importancia_decisor ?? 1
-  const ajustados = factores.filter(f => evaluacion[f.id]).length
+  // Un factor está ajustado cuando el decisor eligió su importancia. Elegir solo
+  // el alcance de un factor 'Ambos' crea la entrada pero no fija el nivel, así que
+  // no basta con que la entrada exista.
+  const ajustado = f => evaluacion[f.id]?.importancia_decisor !== undefined
+  const ajustados = factores.filter(ajustado).length
   const fuera = factores.filter(f => !esRelevante(f, evaluacion, matrizIR)).length
   const pct = factores.length ? Math.round((ajustados / factores.length) * 100) : 0
 
@@ -49,7 +53,7 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
         {dims.map(dim => {
           const key = DIM_KEY[dim] || 'tec'
           const dimFactores = factores.filter(f => f.dimension_nombre === dim)
-          const hechos = dimFactores.filter(f => evaluacion[f.id]).length
+          const hechos = dimFactores.filter(ajustado).length
           return (
             <section className={`dim-card dim-${key}`} key={dim}>
               <header className="dim-cab">
@@ -63,7 +67,7 @@ export default function StepFactores({ factores, evaluacion, onChange, matrizIR 
                   const idVal = idDe(f)
                   // Sin elección del decisor se usa el mínimo (1). Se muestra en gris
                   // neutro, no como si el usuario hubiera elegido "Irrelevante".
-                  const tocado = Boolean(evaluacion[f.id])
+                  const tocado = ajustado(f)
                   const ir = calcularIR(matrizIR, f.importancia_sugerida, idVal)
                   return (
                     <article className={`fac-row${tocado ? ' fac-row-hecho' : ''}`} key={f.id}>

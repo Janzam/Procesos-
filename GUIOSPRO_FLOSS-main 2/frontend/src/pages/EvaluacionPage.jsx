@@ -142,11 +142,13 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
     setError(null)
     try {
       const factoresPayload = factores.map(f => {
-        // Un factor que el decisor no tocó se envía con la importancia mínima.
-        const ev = evFactores[f.id] || { importancia_decisor: 1 }
+        // Un factor sin importancia elegida se envía con la mínima, que es la que
+        // muestra el formulario. La entrada puede existir sin nivel si el decisor
+        // solo eligió el alcance de un factor 'Ambos'.
+        const ev = evFactores[f.id] || {}
         return {
           factor_id: f.id,
-          importancia_decisor: ev.importancia_decisor,
+          importancia_decisor: ev.importancia_decisor ?? 1,
           // Para los factores 'Ambos' se envía siempre un alcance explícito: el
           // formulario muestra 'Interno' preseleccionado, así que se manda ese
           // mismo valor en lugar de null (que el backend trataba como Externo).

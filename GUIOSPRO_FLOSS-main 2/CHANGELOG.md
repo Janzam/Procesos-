@@ -4,6 +4,27 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v3.1.2 — Elegir el alcance antes que la importancia ya no rompe el guardado (2026-10-12)
+
+### 🐞 Un factor «Ambos» con alcance elegido pero sin importancia
+
+En el paso Factores, si el decisor elegía Interno o Externo en un factor de alcance
+«Ambos» **antes** de fijar su importancia, la entrada del factor quedaba creada sin
+nivel. Dos cosas iban mal a partir de ahí:
+
+- La interfaz daba el factor por ajustado: el botón «Irrelevante» se teñía como si lo
+  hubiera elegido el decisor y el contador de factores ajustados lo sumaba.
+- Al guardar, `importancia_decisor` viajaba sin valor, el servidor respondía 400 y la
+  pantalla mostraba solo «Error al guardar evaluación», sin pista de la causa.
+
+Ahora un factor cuenta como ajustado únicamente cuando tiene importancia elegida, de
+modo que elegir solo el alcance lo deja en el gris de «valor por defecto», y al
+guardar se envía la importancia mínima —la misma que muestra el formulario— si no se
+fijó ninguna. El cálculo no cambia: es exactamente lo que ya ocurría con un factor
+que no se tocaba en absoluto.
+
+---
+
 ## v3.1.1 — Limpieza sin cambios de comportamiento (2026-10-12)
 
 Pasada de limpieza sobre todo el código: se retira lo que no se usaba, se reutiliza
