@@ -10,7 +10,7 @@ from .serializers import EvaluacionCreateSerializer, EvaluacionListSerializer
 from factores.models import Factor, Subfactor
 from recomendaciones.services import (
     calcular_resultado_evaluacion, calcular_resultados_evaluaciones,
-    diagnostico, respuestas_determinantes, plan_minimo,
+    diagnostico, respuestas_determinantes, plan_minimo, DESFAVORABLES,
 )
 from recomendaciones import ia
 
@@ -103,7 +103,18 @@ class EvaluacionListCreateView(APIView):
         # de una vez: dos consultas en total, no dos por evaluación.
         resultados = calcular_resultados_evaluaciones(evaluaciones)
         for item in data:
-            item['recomendacion_codigo'] = resultados[item['id']]['recomendacion']['codigo'] or None
+            res = resultados[item['id']]
+            factores = res['factores']
+            # Resumen por evaluación para las tarjetas del panel y del historial.
+            # Sale del mismo resultado ya calculado: no cuesta consultas extra.
+            ponderados = [f for f in factores if f['relevante'] and f['ponderacion_global'] is not None]
+            item['recomendacion_codigo'] = res['recomendacion']['codigo'] or None
+            item['factores_relevantes'] = sum(1 for f in factores if f['relevante'])
+            item['factores_desfavorables'] = sum(1 for f in ponderados if f['foda_categoria'] in DESFAVORABLES)
+            item['ponderacion_media'] = (
+                round(sum(f['ponderacion_global'] for f in ponderados) / len(ponderados), 2)
+                if ponderados else None
+            )
         return Response(data)
 
     def post(self, request):

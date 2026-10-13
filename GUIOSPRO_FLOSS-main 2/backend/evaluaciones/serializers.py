@@ -42,4 +42,5 @@ class EvaluacionCreateSerializer(DatosSoftwareSerializer):
 class EvaluacionListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Evaluacion
-        fields = ['id', 'nombre', 'creado_en', 'organizacion', 'licencia']
+        fields = ['id', 'nombre', 'creado_en', 'software_nombre', 'version',
+                  'organizacion', 'licencia', 'evaluador']

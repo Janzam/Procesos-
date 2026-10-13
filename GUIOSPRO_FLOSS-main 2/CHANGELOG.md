@@ -4,6 +4,50 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v3.2.0 — Rediseño de la interfaz (rama `creatividad`, 2026-10-12)
+
+Rediseño visual tomando como referencia un panel de proyectos en tarjetas, la
+portada de Canva y una vista de estadísticas con gráfica de dona. **El cálculo y
+la API no cambian**; el listado de evaluaciones añade tres cifras por evaluación
+(`ponderacion_media`, `factores_relevantes`, `factores_desfavorables`) y los datos
+del software, que las tarjetas necesitan.
+
+### 🎨 Qué cambia
+
+- **Tema claro por defecto**, con fondo gris suave y tarjetas blancas flotantes; el
+  oscuro sigue disponible desde la barra superior.
+- **Menú lateral** con el elemento activo como pastilla de color y una nota al pie
+  con la metodología.
+- **Panel**: cabecera con «Nueva evaluación»; bloque de resumen con ocho fichas de
+  icono circular (evaluaciones, A/B/C, ponderación media, factores relevantes,
+  factor que más falla, dimensión más débil) y **gráfica de dona** de la
+  clasificación FODA con etiquetas en líneas guía (SVG propio, sin librería).
+  Debajo, el historial como **tarjetas flotantes** con pestañas por veredicto y
+  contador, buscador y vista de rejilla o lista.
+- **Tarjeta de evaluación** (panel e historial): icono de color con la letra del
+  veredicto, software, organización, fecha, evaluador y ponderación con barra, y
+  acciones circulares: ver, editar, PDF, Excel y eliminar. La exportación desde la
+  tarjeta pide el resultado al servidor y usa el mismo módulo que la pantalla de
+  resultados.
+- **Historial**: mismo listado que el panel; desde el panel se abre directamente el
+  detalle de una evaluación.
+- **Nueva evaluación**: cabecera degradada «¿Qué software evaluamos hoy?» con el
+  nombre como buscador, ficha con el resto de datos y «También podrías continuar
+  con…» con las evaluaciones recientes para reabrirlas. Los cuatro pasos del
+  asistente pasan a ser **accesos circulares de color** con su etiqueta.
+- **Exportar** en resultados: botones circulares PDF (rojo) y Excel (verde) con
+  etiqueta debajo.
+- Iconos de línea compartidos en un solo módulo (`components/Iconos.jsx`).
+
+### ✅ Verificación
+
+Pantallas capturadas con Chrome sin cabeza en claro y oscuro: panel (rejilla y
+lista), historial y su detalle, y los pasos Software, Factores y Subfactores.
+Recorrido de extremo a extremo por la API sin cambios de código de estado; `npm run
+build` sin errores.
+
+---
+
 ## v3.1.3 — El salto automático a resultados ya no pierde la última respuesta (2026-10-12)
 
 ### 🐞 «Hay 1 subfactor sin responder» con todo respondido

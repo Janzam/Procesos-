@@ -38,7 +38,7 @@ function leerEstadoGuardado() {
   }
 }
 
-export default function EvaluacionPage({ editarId, onFinEdicion }) {
+export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
   const [guardado] = useState(leerEstadoGuardado)
   const [step, setStep] = useState(guardado?.step ?? 0)
   const [factores, setFactores] = useState([])
@@ -232,7 +232,14 @@ export default function EvaluacionPage({ editarId, onFinEdicion }) {
       )}
 
       <div>
-        {step === 0 && <StepSoftware software={software} onChange={setSoftware} onStart={() => setStep(1)} />}
+        {step === 0 && (
+          <StepSoftware
+            software={software}
+            onChange={setSoftware}
+            onStart={() => setStep(1)}
+            onReabrir={id => onNavigate?.('evaluacion', { editar: id })}
+          />
+        )}
         {(step === 1 || step === 2) && cargandoFactores && (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando factores…</p>
         )}

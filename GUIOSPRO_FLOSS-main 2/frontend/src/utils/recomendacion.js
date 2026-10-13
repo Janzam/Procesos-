@@ -12,6 +12,8 @@ export const REC_CLASS = { A: 'rec-banner-a', B: 'rec-banner-b', C: 'rec-banner-
 export const REC_BADGE = { A: 'rec-badge-a', B: 'rec-badge-b', C: 'rec-badge-c' }
 // Clase que fija el color del veredicto (--v) en chips, leyendas y filetes.
 export const REC_V = { A: 'v-a', B: 'v-b', C: 'v-c' }
+// Etiqueta breve, para pestañas, chips y tarjetas.
+export const REC_CORTO = { A: 'Adoptar', B: 'Con reservas', C: 'No adoptar' }
 
 // Las cuatro categorías de la matriz FODA. No hay más: la metodología clasifica
 // todo factor relevante en una de ellas.

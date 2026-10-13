@@ -1,47 +1,27 @@
-// origen: App.jsx original | cambio: layout con sidebar + topbar + toggle de tema claro/oscuro
+// Armazón de la aplicación: menú lateral, barra superior con el tema y la página
+// activa. Las páginas se comunican con `navegar`, que admite abrir una evaluación
+// para editarla (`editar`) o verla en el historial (`ver`).
 import { useState, useEffect, lazy, Suspense } from 'react'
 import Sidebar from './components/Sidebar.jsx'
 import EvaluacionPage from './pages/EvaluacionPage.jsx'
 import HistorialPage from './pages/HistorialPage.jsx'
-// El panel de métricas arrastra la librería de gráficos (~300 KB). Se carga
-// solo cuando se entra en él, no al abrir la aplicación.
+import { IcoMenu, IcoSol, IcoLuna } from './components/Iconos.jsx'
+// El panel se carga solo cuando se entra en él, no al abrir la aplicación.
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'))
 
 const PAGE_TITLES = {
-  dashboard: 'Dashboard',
-  evaluacion: 'Nueva Evaluación',
+  dashboard: 'Panel',
+  evaluacion: 'Nueva evaluación',
   historial: 'Historial de evaluaciones',
 }
 
-function SunIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <circle cx="12" cy="12" r="5"/>
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-    </svg>
-  )
-}
-function MoonIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-    </svg>
-  )
-}
-
+// Tema: claro por defecto; el oscuro se recuerda si se eligió.
 const THEME_KEY = 'guiosad-theme'
-
-// Lee el tema guardado; si no hay ninguno, oscuro por defecto
 function leerTema() {
-  try {
-    return localStorage.getItem(THEME_KEY) !== 'light'
-  } catch {
-    return true
-  }
+  try { return localStorage.getItem(THEME_KEY) === 'dark' } catch { return false }
 }
 
 const PAGE_KEY = 'guiosad-page'
-
 function leerPagina() {
   try {
     const p = localStorage.getItem(PAGE_KEY)
@@ -57,10 +37,11 @@ function leerSidebar() {
 }
 
 export default function App() {
-  const [page, setPage]   = useState(leerPagina)
-  // Evaluación que se está editando, si se llegó aquí desde el historial.
+  const [page, setPage] = useState(leerPagina)
+  // Evaluación que se está editando o viendo, si se llegó desde otra pantalla.
   const [editarId, setEditarId] = useState(null)
-  const [dark, setDark]   = useState(leerTema)
+  const [verId, setVerId] = useState(null)
+  const [dark, setDark] = useState(leerTema)
   const [sidebar, setSidebar] = useState(leerSidebar)
 
   useEffect(() => {
@@ -69,6 +50,7 @@ export default function App() {
 
   function navegar(destino, opciones) {
     setEditarId(opciones?.editar ?? null)
+    setVerId(opciones?.ver ?? null)
     setPage(destino)
   }
 
@@ -89,27 +71,30 @@ export default function App() {
           <div className="topbar-left">
             {!sidebar && (
               <button className="theme-toggle" data-tip="Mostrar menú" onClick={() => setSidebar(true)} aria-label="Mostrar menú lateral">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <IcoMenu />
               </button>
             )}
             <div className="topbar-breadcrumb">
-              GUIOSAD v2 &nbsp;›&nbsp; <span>{PAGE_TITLES[page]}</span>
+              GUIOSAD v2 <span className="topbar-sep">›</span> <span>{PAGE_TITLES[page]}</span>
             </div>
           </div>
           <button
             className="theme-toggle"
             data-tip={dark ? 'Modo claro' : 'Modo oscuro'}
             onClick={() => setDark(!dark)}
+            aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
-            {dark ? <SunIcon /> : <MoonIcon />}
+            {dark ? <IcoSol /> : <IcoLuna />}
           </button>
         </header>
         <main className="layout-content">
-          <Suspense fallback={<p className="analisis-vacio">Cargando…</p>}>
+          <Suspense fallback={<p className="an-vacio">Cargando…</p>}>
             {page === 'dashboard' && <DashboardPage onNavigate={navegar} />}
           </Suspense>
-          {page === 'evaluacion' && <EvaluacionPage editarId={editarId} onFinEdicion={() => setEditarId(null)} />}
-          {page === 'historial'  && <HistorialPage onNavigate={navegar} />}
+          {page === 'evaluacion' && (
+            <EvaluacionPage editarId={editarId} onFinEdicion={() => setEditarId(null)} onNavigate={navegar} />
+          )}
+          {page === 'historial' && <HistorialPage onNavigate={navegar} verId={verId} />}
         </main>
       </div>
     </div>
