@@ -3,24 +3,60 @@
 // No hay aquí ninguna fórmula alternativa. Todo lo que se muestra se deriva del
 // resultado que ya calculó la metodología: qué factores lo causan, de qué
 // información depende cada uno, qué haría falta para mejorarlo y qué respuestas
-// lo deciden. El sistema no recalcula nada con otros criterios.
+// lo deciden. Se presenta en pestañas, cada una con su color, y con un mini
+// diagrama de líneas que sitúa cada factor en la escala 1–4 frente al umbral.
 import { useState, useEffect } from 'react'
 import {
   getDiagnostico, getDeterminantes, pedirPlanNarrado, pedirInforme, getEstadoIA,
 } from '../api/guiosad.js'
 import { FODA_CLASS } from '../utils/recomendacion.js'
+import { IcoFactores, IcoMedidor, IcoResultados, IcoAlerta, IcoChispa } from './Iconos.jsx'
 
 const ACENTO = { A: 'acento-a', B: 'acento-b', C: 'acento-c' }
+const COLOR_CAT = {
+  Fortaleza: 'var(--foda-f)', Oportunidad: 'var(--foda-o)', Debilidad: 'var(--foda-d)', Amenaza: 'var(--foda-a)',
+}
+const UMBRAL = 3
 
-function Seccion({ titulo, apunte, children }) {
+const PESTANAS = [
+  { id: 'causas',       etiqueta: 'Causas',       tono: 'azul',   Icono: IcoFactores },
+  { id: 'mejora',       etiqueta: 'Mejora',       tono: 'verde',  Icono: IcoMedidor },
+  { id: 'sensibilidad', etiqueta: 'Sensibilidad', tono: 'morado', Icono: IcoResultados },
+  { id: 'avisos',       etiqueta: 'Avisos',       tono: 'ambar',  Icono: IcoAlerta },
+  { id: 'informe',      etiqueta: 'Informe IA',   tono: 'rosa',   Icono: IcoChispa, soloIA: true },
+]
+
+// Posición en la pista de una ponderación de la escala 1–4.
+const pos = v => `${((Math.min(Math.max(v, 1), 4) - 1) / 3) * 100}%`
+
+// Mini diagrama de líneas: cada factor es un punto en la escala 1–4 unido por
+// una línea al umbral de 3,0; la longitud de la línea es lo que le falta.
+function MiniLineas({ filas, leyenda }) {
   return (
-    <section className="an-seccion">
-      <header className="an-seccion-cab">
-        <h3 className="an-seccion-titulo">{titulo}</h3>
-        {apunte && <span className="an-seccion-apunte">{apunte}</span>}
-      </header>
-      {children}
-    </section>
+    <div className="ml">
+      <div className="ml-escala" aria-hidden="true">
+        <span style={{ left: pos(1) }}>1</span>
+        <span style={{ left: pos(2) }}>2</span>
+        <span className="ml-escala-umbral" style={{ left: pos(UMBRAL) }}>3 · umbral</span>
+        <span style={{ left: pos(4) }}>4</span>
+      </div>
+      {filas.map(f => {
+        const ini = Math.min(f.valor, UMBRAL)
+        const fin = Math.max(f.valor, UMBRAL)
+        return (
+          <div className="ml-fila" key={f.id}>
+            <span className="ml-nombre" title={f.nombre}>{f.nombre}</span>
+            <span className="ml-pista">
+              <span className="ml-umbral" style={{ left: pos(UMBRAL) }} />
+              <span className="ml-linea" style={{ left: pos(ini), width: `calc(${pos(fin)} - ${pos(ini)})`, background: f.color }} />
+              <span className="ml-punto" style={{ left: pos(f.valor), background: f.color }} />
+            </span>
+            <span className="ml-valor" style={{ color: f.color }}>{f.valor.toFixed(2)}</span>
+          </div>
+        )
+      })}
+      {leyenda && <p className="ml-leyenda">{leyenda}</p>}
+    </div>
   )
 }
 
@@ -32,7 +68,7 @@ function Badge({ categoria }) {
 function Narracion({ texto, error }) {
   if (!texto) {
     return error
-      ? <p className="an-nota">El asistente no pudo redactarlo: {error} El análisis que sigue no depende de él.</p>
+      ? <p className="an-nota">El asistente no pudo redactarlo: {error} El análisis no depende de él.</p>
       : null
   }
   return (
@@ -43,23 +79,29 @@ function Narracion({ texto, error }) {
   )
 }
 
-// ── Factores que causan la recomendación ────────────────────────────
-function Causantes({ diag }) {
-  if (!diag.causantes.length) return null
+// ── Causas ──────────────────────────────────────────────────────────
+function Causas({ diag }) {
+  if (!diag.causantes.length) {
+    return (
+      <p className="an-texto">
+        Ningún factor relevante resultó desfavorable: nada está provocando una recomendación
+        peor. Revise las otras pestañas para ver de qué depende la solidez del resultado.
+      </p>
+    )
+  }
   return (
-    <Seccion
-      titulo="Factores que causan este resultado"
-      apunte={`${diag.causantes.length} de ${diag.factores_relevantes} factores evaluados`}
-    >
+    <>
+      <p className="an-texto">
+        {diag.causantes.length} de {diag.factores_relevantes} factores evaluados están causando este resultado.
+      </p>
+      <MiniLineas
+        filas={diag.causantes.map(c => ({ id: c.factor_id, nombre: c.factor_nombre, valor: c.ponderacion, color: COLOR_CAT[c.categoria] }))}
+        leyenda="Cada punto es la ponderación del factor; la línea, lo que le falta para el umbral de 3,0 a partir del cual sería favorable."
+      />
       <div className="an-tabla-wrap">
         <table className="foda-table">
           <thead>
-            <tr>
-              <th>Factor</th>
-              <th>Clasificación</th>
-              <th>Ponderación</th>
-              <th>De dónde sale</th>
-            </tr>
+            <tr><th>Factor</th><th>Clasificación</th><th>Ponderación</th><th>De dónde sale</th></tr>
           </thead>
           <tbody>
             {diag.causantes.map(c => (
@@ -76,9 +118,7 @@ function Causantes({ diag }) {
                 <td className="an-motivo">
                   {c.observacion}
                   {c.subfactores_sin_conocer > 0 && (
-                    <span className="an-chip-aviso">
-                      {c.subfactores_sin_conocer} de {c.subfactores_totales} sin conocer
-                    </span>
+                    <span className="an-chip-aviso">{c.subfactores_sin_conocer} de {c.subfactores_totales} sin conocer</span>
                   )}
                 </td>
               </tr>
@@ -86,22 +126,31 @@ function Causantes({ diag }) {
           </tbody>
         </table>
       </div>
-    </Seccion>
+    </>
   )
 }
 
-// ── Qué haría falta para mejorar ────────────────────────────────────
-function Plan({ plan }) {
-  if (!plan || plan.recomendacion_actual === 'A' || !plan.bloqueantes?.length) return null
-
+// ── Mejora ──────────────────────────────────────────────────────────
+function Mejora({ plan }) {
+  if (!plan) return null
+  if (plan.recomendacion_actual === 'A') {
+    return <p className="an-texto">La recomendación ya es la mejor posible: no hay nada que mejorar para cambiarla.</p>
+  }
+  if (!plan.bloqueantes?.length) {
+    return <p className="an-texto">No hay factores que bloqueen una recomendación mejor.</p>
+  }
   return (
-    <Seccion
-      titulo="Qué haría falta para mejorar"
-      apunte={plan.alcanzable && plan.objetivo
-        ? `Resolviéndolos, la recomendación pasaría a ${plan.objetivo}`
-        : 'Alguno no alcanza el umbral ni con todas sus respuestas al máximo'}
-    >
+    <>
+      <p className="an-texto">
+        {plan.alcanzable && plan.objetivo
+          ? <>Resolviendo estos factores, la recomendación pasaría a <strong>{plan.objetivo}</strong>.</>
+          : 'Alguno de estos factores no alcanza el umbral ni con todas sus respuestas al máximo.'}
+      </p>
       <Narracion texto={plan.narracion} error={plan.narracion_error} />
+      <MiniLineas
+        filas={plan.bloqueantes.map(b => ({ id: b.factor_id, nombre: b.factor_nombre, valor: b.ponderacion_actual, color: COLOR_CAT[b.categoria] }))}
+        leyenda="Ponderación actual de cada factor bloqueante y la distancia que lo separa del umbral."
+      />
       <div className="an-tabla-wrap">
         <table className="foda-table">
           <thead>
@@ -123,9 +172,7 @@ function Plan({ plan }) {
                     : <>Elevar <strong>{b.subfactores_a_mejorar}</strong> de sus {b.subfactores_totales}{' '}
                        {b.subfactores_totales === 1 ? 'criterio' : 'criterios'}.</>}
                   {b.subfactores_sin_conocer > 0 && (
-                    <span className="an-chip-aviso">
-                      {b.subfactores_sin_conocer} sin conocer: verificarlos es lo más barato
-                    </span>
+                    <span className="an-chip-aviso">{b.subfactores_sin_conocer} sin conocer: verificarlos es lo más barato</span>
                   )}
                 </td>
               </tr>
@@ -133,31 +180,26 @@ function Plan({ plan }) {
           </tbody>
         </table>
       </div>
-    </Seccion>
+    </>
   )
 }
 
-// ── Respuestas que deciden ──────────────────────────────────────────
-function Determinantes({ det }) {
+// ── Sensibilidad ────────────────────────────────────────────────────
+function Sensibilidad({ det }) {
   if (!det) return null
   if (!det.total_determinantes) {
     return (
-      <Seccion titulo="Respuestas que deciden el resultado">
-        <p className="an-texto">
-          Ninguna respuesta aislada cambiaría la recomendación: el resultado no cuelga de una
-          sola de las {det.total_respuestas} respuestas.
-        </p>
-      </Seccion>
+      <p className="an-texto">
+        Ninguna respuesta aislada cambiaría la recomendación: el resultado no cuelga de una
+        sola de las {det.total_respuestas} respuestas.
+      </p>
     )
   }
   return (
-    <Seccion
-      titulo="Respuestas que deciden el resultado"
-      apunte={`${det.total_determinantes} de ${det.total_respuestas}`}
-    >
+    <>
       <p className="an-texto">
-        Contestadas de otro modo, estas respuestas cambiarían por sí solas la recomendación.
-        Conviene confirmarlas antes de decidir.
+        {det.total_determinantes} de {det.total_respuestas} respuestas cambiarían por sí solas la
+        recomendación si se contestaran de otro modo. Conviene confirmarlas antes de decidir.
       </p>
       <ul className="an-lista">
         {det.determinantes.map(d => (
@@ -167,35 +209,33 @@ function Determinantes({ det }) {
               <span className="an-sub">{d.subfactor_nombre}</span>
             </div>
             <div className="an-cambio">
-              Respondiendo <strong>{d.valor_alternativo}</strong> en vez de <strong>{d.valor_actual}</strong>,
-              la recomendación pasaría a <strong>{d.recomendacion_resultante}</strong>.
+              <span className="chip chip-morado">{d.valor_actual} → {d.valor_alternativo}</span>
+              la recomendación pasaría a <strong>{d.recomendacion_resultante}</strong>
             </div>
           </li>
         ))}
       </ul>
-    </Seccion>
+    </>
   )
 }
 
-// ── Avisos generales ────────────────────────────────────────────────
+// ── Avisos ──────────────────────────────────────────────────────────
 function Avisos({ diag }) {
-  if (!diag.avisos.length) return null
+  if (!diag.avisos.length) {
+    return <p className="an-texto">Sin avisos: el resultado no descansa en respuestas sin conocer ni en factores al límite.</p>
+  }
   return (
-    <Seccion titulo="A tener en cuenta">
-      <ul className="an-avisos">
-        {diag.avisos.map((a, i) => <li key={i}>{a}</li>)}
-      </ul>
-    </Seccion>
+    <ul className="an-avisos">
+      {diag.avisos.map((a, i) => <li key={i}>{a}</li>)}
+    </ul>
   )
 }
 
 // ── Informe ejecutivo (solo con el asistente configurado) ───────────
-function Informe({ evaluacionId, disponible }) {
+function Informe({ evaluacionId }) {
   const [texto, setTexto] = useState(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState(null)
-
-  if (!disponible) return null
 
   async function pedir() {
     setCargando(true)
@@ -211,121 +251,105 @@ function Informe({ evaluacionId, disponible }) {
   }
 
   return (
-    <Seccion titulo="Informe ejecutivo">
+    <>
       {!texto && (
         <div className="an-accion">
           <p className="an-texto">
             El asistente puede redactar este análisis en prosa para presentarlo a la dirección.
           </p>
-          <button className="btn btn-outline btn-xs" onClick={pedir} disabled={cargando}>
+          <button className="btn btn-primary" onClick={pedir} disabled={cargando}>
             {cargando ? 'Redactando…' : 'Redactar informe'}
           </button>
         </div>
       )}
       {error && <div className="error-msg">{error}</div>}
       <Narracion texto={texto} />
-    </Seccion>
+    </>
   )
 }
 
-// Si el decisor dejó el análisis abierto, sigue abierto la próxima vez: es la
-// misma preferencia que ya se recuerda para los gráficos y la lista del historial.
-const ABIERTO_KEY = 'guiosad-analisis-abierto'
-function leerAbierto() {
-  try { return localStorage.getItem(ABIERTO_KEY) === 'si' } catch { return false }
-}
-
 export default function AnalisisResultado({ evaluacionId }) {
-  const [abierto, setAbierto] = useState(leerAbierto)
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState(null)
   const [ia, setIa] = useState(false)
+  const [pestana, setPestana] = useState(null)
 
+  // Las tres consultas son deterministas y baratas: se piden a la vez al ver
+  // el resultado, sin pedir que se pulse nada.
   useEffect(() => {
-    if (!abierto || datos || cargando) return
+    if (!evaluacionId) return
+    let vigente = true
     setCargando(true)
     setError(null)
-    // Las tres consultas son deterministas y baratas: se piden a la vez y el
-    // análisis se muestra entero, sin pestañas que obliguen a ir y venir.
-    Promise.all([
-      getDiagnostico(evaluacionId),
-      getDeterminantes(evaluacionId),
-      pedirPlanNarrado(evaluacionId),
-    ])
-      .then(([diag, det, plan]) => setDatos({ diag, det, plan }))
-      .catch(e => setError(e.message))
-      .finally(() => setCargando(false))
-  }, [abierto, evaluacionId, datos, cargando])
-
-  useEffect(() => {
-    if (!abierto) return
-    getEstadoIA().then(e => setIa(Boolean(e.disponible))).catch(() => setIa(false))
-  }, [abierto])
-
-  useEffect(() => {
-    try { localStorage.setItem(ABIERTO_KEY, abierto ? 'si' : 'no') } catch { /* modo privado */ }
-  }, [abierto])
+    setDatos(null)
+    setPestana(null)
+    Promise.all([getDiagnostico(evaluacionId), getDeterminantes(evaluacionId), pedirPlanNarrado(evaluacionId)])
+      .then(([diag, det, plan]) => { if (vigente) setDatos({ diag, det, plan }) })
+      .catch(e => { if (vigente) setError(e.message) })
+      .finally(() => { if (vigente) setCargando(false) })
+    getEstadoIA().then(e => { if (vigente) setIa(Boolean(e.disponible)) }).catch(() => {})
+    return () => { vigente = false }
+  }, [evaluacionId])
 
   if (!evaluacionId) return null
 
-  if (!abierto) {
-    return (
-      <div className="an-llamada">
-        <div>
-          <div className="an-llamada-titulo">¿Por qué este resultado?</div>
-          <div className="an-llamada-texto">
-            Qué factores lo causan, de qué información depende cada uno, qué haría falta para
-            mejorarlo y qué respuestas lo deciden.
-          </div>
-        </div>
-        <button className="btn btn-primary" onClick={() => setAbierto(true)}>
-          Analizar el resultado
-        </button>
-      </div>
-    )
-  }
-
   const diag = datos?.diag
+  const cuentas = datos ? {
+    causas: datos.diag.causantes.length,
+    mejora: datos.plan?.bloqueantes?.length || 0,
+    sensibilidad: datos.det?.total_determinantes || 0,
+    avisos: datos.diag.avisos.length,
+  } : {}
+  // Se abre la primera pestaña con contenido.
+  const activa = pestana || PESTANAS.find(p => cuentas[p.id])?.id || 'sensibilidad'
+  const visibles = PESTANAS.filter(p => !p.soloIA || ia)
 
   return (
     <div className={`card an-card ${diag ? ACENTO[diag.recomendacion] || '' : ''}`}>
       <header className="an-cab">
-        <div>
+        <div className="an-cab-texto">
+          <span className="chip chip-azul">¿Por qué este resultado?</span>
           <h2 className="an-titulo">{diag ? diag.titulo : 'Análisis del resultado'}</h2>
           {diag && <p className="an-resumen">{diag.resumen}</p>}
         </div>
-        <button className="btn btn-outline btn-xs" onClick={() => setAbierto(false)}>Cerrar</button>
+        {diag && diag.cobertura_global !== null && (
+          <div className="an-metricas">
+            <div className="an-metrica"><b>{diag.factores_desfavorables}</b><span>factores desfavorables</span></div>
+            <div className="an-metrica"><b>{Math.round(diag.cobertura_global * 100)} %</b><span>respuestas conocidas</span></div>
+            <div className="an-metrica"><b>{datos.det?.total_determinantes ?? '—'}</b><span>respuestas que deciden</span></div>
+          </div>
+        )}
       </header>
 
       {cargando && <p className="an-vacio an-cuerpo">Analizando…</p>}
       {error && <div className="error-msg" style={{ margin: 16 }}>{error}</div>}
 
       {datos && (
-        <div className="an-cuerpo">
-          {diag.cobertura_global !== null && (
-            <div className="an-metricas">
-              <div className="an-metrica">
-                <span className="an-metrica-valor">{diag.factores_desfavorables}</span>
-                <span className="an-metrica-etiqueta">factores desfavorables</span>
-              </div>
-              <div className="an-metrica">
-                <span className="an-metrica-valor">{Math.round(diag.cobertura_global * 100)} %</span>
-                <span className="an-metrica-etiqueta">de las respuestas se conocen</span>
-              </div>
-              <div className="an-metrica">
-                <span className="an-metrica-valor">{datos.det?.total_determinantes ?? '—'}</span>
-                <span className="an-metrica-etiqueta">respuestas deciden el resultado</span>
-              </div>
-            </div>
-          )}
-
-          <Causantes diag={diag} />
-          <Plan plan={datos.plan} />
-          <Determinantes det={datos.det} />
-          <Avisos diag={diag} />
-          <Informe evaluacionId={evaluacionId} disponible={ia} />
-        </div>
+        <>
+          <nav className="an-pestanas" role="tablist" aria-label="Apartados del análisis">
+            {visibles.map(({ id, etiqueta, tono, Icono }) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={activa === id}
+                className={`an-pestana an-pestana-${tono}${activa === id ? ' activa' : ''}`}
+                onClick={() => setPestana(id)}
+              >
+                <Icono />
+                {etiqueta}
+                {cuentas[id] > 0 && <span className="an-pestana-cuenta">{cuentas[id]}</span>}
+              </button>
+            ))}
+          </nav>
+          <div className="an-panel" role="tabpanel">
+            {activa === 'causas' && <Causas diag={diag} />}
+            {activa === 'mejora' && <Mejora plan={datos.plan} />}
+            {activa === 'sensibilidad' && <Sensibilidad det={datos.det} />}
+            {activa === 'avisos' && <Avisos diag={diag} />}
+            {activa === 'informe' && <Informe evaluacionId={evaluacionId} />}
+          </div>
+        </>
       )}
     </div>
   )

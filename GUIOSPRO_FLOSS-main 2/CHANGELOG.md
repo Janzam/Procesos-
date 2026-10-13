@@ -43,8 +43,17 @@ del software, que las tarjetas necesitan.
 - **Menú lateral** con marca degradada, cada entrada con su icono en losange de
   color y una descripción, y al pie una tarjeta «Acerca de» con la metodología y sus
   cifras (3 dimensiones, 18 factores, 61 subfactores).
-- Las fichas del resumen muestran solo icono, etiqueta y cifra; el detalle queda
-  como texto emergente.
+- Las fichas del resumen muestran solo icono, etiqueta y cifra en una píldora de su
+  color, sin cuadrícula; el detalle queda como texto emergente. «Resumen» y
+  «Clasificación FODA» son etiquetas tipo píldora.
+- **Análisis del resultado** reorganizado en una tarjeta con **pestañas de color**
+  (Causas, Mejora, Sensibilidad, Avisos e Informe IA), cada una con su contador, y
+  tres cifras resumen en la cabecera. Causas y Mejora incorporan un **mini diagrama
+  de líneas**: cada factor es un punto en la escala 1–4 unido por una línea al
+  umbral de 3,0, del color de su categoría FODA. El análisis se carga al ver el
+  resultado, sin botón previo.
+- Botones del asistente: el principal sin flecha; «Anterior» y «Evaluar otro
+  sistema» como píldoras suaves azul y rosa.
 - **Exportar** en resultados: botones circulares PDF (rojo) y Excel (verde) con
   etiqueta debajo.
 - Iconos de línea compartidos en un solo módulo (`components/Iconos.jsx`).
