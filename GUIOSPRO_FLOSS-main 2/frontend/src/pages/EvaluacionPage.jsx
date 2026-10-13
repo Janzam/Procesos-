@@ -267,9 +267,9 @@ export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
         <div className="wizard-actions">
           {step < 3 ? (
             <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn btn-secondary" onClick={() => setStep(step - 1)}>← Anterior</button>
+              <button className="btn btn-suave btn-suave-azul" onClick={() => setStep(step - 1)}>Anterior</button>
               <button
-                className="btn btn-outline"
+                className="btn btn-suave btn-suave-rosa"
                 onClick={() => { if (window.confirm('¿Descartar esta evaluación y empezar con otro sistema?')) handleNuevaEvaluacion() }}
               >
                 Evaluar otro sistema
@@ -279,16 +279,16 @@ export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
           <div style={{ display: 'flex', gap: 10 }}>
             {step === 1 && (
               <button className="btn btn-primary" disabled={factores.length === 0} onClick={() => setStep(2)}>
-                Siguiente: Subfactores →
+                Siguiente: Subfactores
               </button>
             )}
             {step === 2 && (
               <button className="btn btn-primary" disabled={loading} onClick={handleCalcular}>
-                {loading ? 'Guardando…' : editando ? 'Guardar cambios →' : 'Ver Resultados →'}
+                {loading ? 'Guardando…' : editando ? 'Guardar cambios' : 'Ver Resultados'}
               </button>
             )}
             {step === 3 && (
-              <button className="btn btn-secondary" onClick={handleNuevaEvaluacion}>
+              <button className="btn btn-suave btn-suave-azul" onClick={handleNuevaEvaluacion}>
                 Nueva evaluación
               </button>
             )}

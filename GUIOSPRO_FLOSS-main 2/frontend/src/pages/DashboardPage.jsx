@@ -23,7 +23,7 @@ function Ficha({ etiqueta, valor, pie, tono, Icono, texto }) {
     <li className={`ficha ficha-${tono}${texto ? ' ficha-texto' : ''}`} title={pie ? `${etiqueta}: ${valor} · ${pie}` : undefined}>
       <span className="ficha-icono"><Icono /></span>
       <span className="ficha-etiqueta">{etiqueta}</span>
-      <span className="ficha-valor">{valor}</span>
+      <span className={`ficha-valor chip chip-${tono}`}>{valor}</span>
     </li>
   )
 }
@@ -98,7 +98,7 @@ export default function DashboardPage({ onNavigate }) {
       <section className="card resumen">
         <div className="resumen-fichas">
           <header className="resumen-cab">
-            <h3>Resumen</h3>
+            <h3 className="chip chip-azul">Resumen</h3>
             <span>{total} evaluaciones · {clasificados} factores clasificados</span>
           </header>
           <ul className="fichas">
@@ -107,7 +107,7 @@ export default function DashboardPage({ onNavigate }) {
         </div>
         <div className="resumen-dona">
           <header className="resumen-cab">
-            <h3>Clasificación FODA</h3>
+            <h3 className="chip chip-morado">Clasificación FODA</h3>
             <span>de todos los factores evaluados</span>
           </header>
           <Donut
