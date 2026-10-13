@@ -10,8 +10,11 @@ export function tituloDe(ev) {
   return ev.software_nombre ? [ev.software_nombre, ev.version].filter(Boolean).join(' ') : ev.nombre
 }
 
+// Dos iniciales a partir de las palabras que empiezan por letra o número; los
+// signos sueltos («QA -Opps») no cuentan.
 export function iniciales(nombre) {
-  return nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase()
+  const letras = nombre.match(/[\p{L}\p{N}]+/gu) || []
+  return letras.slice(0, 2).map(p => p[0]).join('').toUpperCase() || '–'
 }
 
 export function AccionesTarjeta({ ev, onVer, onEditar, onBorrar, onExportar, ocupado, borrando }) {
