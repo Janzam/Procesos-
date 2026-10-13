@@ -452,9 +452,11 @@ select.field-input { cursor: pointer; }
 
 /* Evaluaciones recientes bajo el paso inicial */
 .recientes-titulo { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
-.recientes-fila { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; }
+/* Rejilla que baja de fila: nunca se recorta por la derecha. */
+.recientes-fila { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 16px 14px; }
+.recientes-nota { font-size: 12px; color: var(--text-muted); margin-top: 12px; }
 .reciente {
-  flex: 0 0 168px; display: flex; flex-direction: column; gap: 8px; text-align: left;
+  display: flex; flex-direction: column; gap: 8px; text-align: left; min-width: 0;
   padding: 0; background: transparent; border: none; cursor: pointer;
 }
 .reciente-miniatura {

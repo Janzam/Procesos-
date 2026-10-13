@@ -41,6 +41,9 @@ export default function App() {
   // Evaluación que se está editando o viendo, si se llegó desde otra pantalla.
   const [editarId, setEditarId] = useState(null)
   const [verId, setVerId] = useState(null)
+  // Cada «Nueva evaluación» (menú o panel) incrementa este contador para que la
+  // página de evaluación empiece de cero en vez de recuperar el borrador anterior.
+  const [reinicio, setReinicio] = useState(0)
   const [dark, setDark] = useState(leerTema)
   const [sidebar, setSidebar] = useState(leerSidebar)
 
@@ -51,6 +54,7 @@ export default function App() {
   function navegar(destino, opciones) {
     setEditarId(opciones?.editar ?? null)
     setVerId(opciones?.ver ?? null)
+    if (destino === 'evaluacion' && !opciones?.editar) setReinicio(n => n + 1)
     setPage(destino)
   }
 
@@ -92,7 +96,7 @@ export default function App() {
             {page === 'dashboard' && <DashboardPage onNavigate={navegar} />}
           </Suspense>
           {page === 'evaluacion' && (
-            <EvaluacionPage editarId={editarId} onFinEdicion={() => setEditarId(null)} onNavigate={navegar} />
+            <EvaluacionPage editarId={editarId} reinicio={reinicio} onFinEdicion={() => setEditarId(null)} onNavigate={navegar} />
           )}
           {page === 'historial' && <HistorialPage onNavigate={navegar} verId={verId} />}
         </main>

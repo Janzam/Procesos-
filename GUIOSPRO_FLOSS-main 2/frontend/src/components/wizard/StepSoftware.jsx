@@ -46,7 +46,11 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir, o
   const q = busqueda.trim().toLowerCase()
   const coincide = e => [e.nombre, e.software_nombre, e.organizacion, e.evaluador]
     .some(v => (v || '').toLowerCase().includes(q))
-  const mostradas = q ? historial.filter(coincide) : historial.slice(0, 6)
+  // Sin búsqueda, las seis más recientes; buscando, hasta doce coincidencias.
+  const LIMITE = q ? 12 : 6
+  const candidatas = q ? historial.filter(coincide) : historial
+  const mostradas = candidatas.slice(0, LIMITE)
+  const ocultas = candidatas.length - mostradas.length
 
   // Informe o libro con TODAS las evaluaciones guardadas: se piden los
   // resultados completos y se entregan en un solo archivo.
@@ -196,6 +200,13 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir, o
               </button>
             )}
           </div>
+          {ocultas > 0 && (
+            <p className="recientes-nota">
+              {q
+                ? `Hay ${ocultas} coincidencias más; afine la búsqueda o consulte el historial.`
+                : `Las ${ocultas} restantes están en el historial.`}
+            </p>
+          )}
         </section>
       )}
     </div>

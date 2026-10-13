@@ -38,7 +38,7 @@ function leerEstadoGuardado() {
   }
 }
 
-export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
+export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, onNavigate }) {
   const [guardado] = useState(leerEstadoGuardado)
   const [step, setStep] = useState(guardado?.step ?? 0)
   const [factores, setFactores] = useState([])
@@ -114,6 +114,17 @@ export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
   useEffect(() => {
     getEstadoIA().then(e => setIaDisponible(Boolean(e.disponible))).catch(() => setIaDisponible(false))
   }, [])
+
+  // «Nueva evaluación» desde el menú o el panel: se empieza de cero en vez de
+  // recuperar el borrador (o el resultado) anterior. Solo se pregunta si hay una
+  // evaluación a medias sin guardar; un resultado ya calculado está a salvo.
+  useEffect(() => {
+    if (!reinicio) return
+    const aMedias = step > 0 && step < 3 &&
+      (Object.keys(evFactores).length > 0 || Object.keys(evSubfactores).length > 0)
+    if (aMedias && !window.confirm('¿Descartar la evaluación en curso y empezar una nueva?')) return
+    handleNuevaEvaluacion()
+  }, [reinicio]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Subfactores sin responder de los factores que sí entrarán en el cálculo
   function contarPendientes() {
