@@ -16,3 +16,11 @@ export async function exportarResultado(tipo, nombre, resultado) {
   if (tipo === 'pdf') mod.exportarPDF(nombre, resultado)
   else await mod.exportarExcel(nombre, resultado)
 }
+
+// Todas las evaluaciones en un solo archivo: `evaluaciones` es el listado y
+// `detalles` los resultados completos, en el mismo orden.
+export async function exportarTodas(tipo, evaluaciones, detalles) {
+  const mod = await precargarExportacion()
+  if (tipo === 'pdf') mod.exportarTodasPDF(evaluaciones, detalles)
+  else await mod.exportarTodasExcel(evaluaciones, detalles)
+}

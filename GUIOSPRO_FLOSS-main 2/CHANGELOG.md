@@ -31,10 +31,20 @@ del software, que las tarjetas necesitan.
   resultados.
 - **Historial**: mismo listado que el panel; desde el panel se abre directamente el
   detalle de una evaluación.
-- **Nueva evaluación**: cabecera degradada «¿Qué software evaluamos hoy?» con el
-  nombre como buscador, ficha con el resto de datos y «También podrías continuar
-  con…» con las evaluaciones recientes para reabrirlas. Los cuatro pasos del
-  asistente pasan a ser **accesos circulares de color** con su etiqueta.
+- **Nueva evaluación**: cabecera degradada «¿Qué software evaluamos hoy?» con un
+  **buscador de evaluaciones** (por software, organización o evaluador) y, debajo,
+  cinco accesos circulares: Panel, Historial, Última evaluación, Informe PDF y Libro
+  Excel, estos dos con **todas las evaluaciones en un solo archivo** (resumen más el
+  detalle factor a factor). Si lo buscado no existe, una tarjeta propone evaluarlo
+  como software nuevo. La ficha del producto incluye el nombre y el resto de datos;
+  «También podrías continuar con…» muestra las evaluaciones recientes para
+  reabrirlas. Los cuatro pasos del asistente pasan a ser **accesos circulares de
+  color** con su etiqueta.
+- **Menú lateral** con marca degradada, cada entrada con su icono en losange de
+  color y una descripción, y al pie una tarjeta «Acerca de» con la metodología y sus
+  cifras (3 dimensiones, 18 factores, 61 subfactores).
+- Las fichas del resumen muestran solo icono, etiqueta y cifra; el detalle queda
+  como texto emergente.
 - **Exportar** en resultados: botones circulares PDF (rojo) y Excel (verde) con
   etiqueta debajo.
 - Iconos de línea compartidos en un solo módulo (`components/Iconos.jsx`).

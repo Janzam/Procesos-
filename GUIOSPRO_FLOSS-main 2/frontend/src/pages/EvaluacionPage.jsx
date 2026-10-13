@@ -238,6 +238,8 @@ export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
             onChange={setSoftware}
             onStart={() => setStep(1)}
             onReabrir={id => onNavigate?.('evaluacion', { editar: id })}
+            onIr={destino => onNavigate?.(destino)}
+            onError={setError}
           />
         )}
         {(step === 1 || step === 2) && cargandoFactores && (

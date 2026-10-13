@@ -292,15 +292,190 @@ export async function exportarExcel(nombre, resultado) {
     ws.headerFooter.oddFooter = `&L GUIOSAD v2 · ${titulo} &R Página &P de &N`
   })
 
+  await descargarLibro(wb, nombreArchivo(nombre, 'xlsx'))
+}
+
+async function descargarLibro(wb, archivo) {
   const buffer = await wb.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = nombreArchivo(nombre, 'xlsx')
+  a.download = archivo
   document.body.appendChild(a)
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/* ── Todas las evaluaciones en un solo archivo ─────────────── */
+// `evaluaciones` es el listado (con ponderación media y recuentos) y `detalles`
+// los resultados completos en el mismo orden.
+
+const fechaCorta = iso => new Date(iso).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })
+
+function filasResumen(evaluaciones) {
+  return evaluaciones.map(e => [
+    e.software_nombre ? [e.software_nombre, e.version].filter(Boolean).join(' ') : e.nombre,
+    e.organizacion || '—',
+    e.evaluador || '—',
+    fechaCorta(e.creado_en),
+    e.recomendacion_codigo ? `${e.recomendacion_codigo} — ${REC_LABEL[e.recomendacion_codigo]}` : 'Sin veredicto',
+    e.ponderacion_media != null ? e.ponderacion_media.toFixed(2) : '—',
+    `${e.factores_desfavorables ?? 0} de ${e.factores_relevantes ?? 0}`,
+  ])
+}
+
+export function exportarTodasPDF(evaluaciones, detalles) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' })
+  const W = doc.internal.pageSize.getWidth()
+  const H = doc.internal.pageSize.getHeight()
+  const M = 14
+  const cuenta = { A: 0, B: 0, C: 0 }
+  evaluaciones.forEach(e => { if (cuenta[e.recomendacion_codigo] !== undefined) cuenta[e.recomendacion_codigo]++ })
+
+  doc.setFillColor(15, 118, 110)
+  doc.rect(0, 0, W, 22, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15)
+  doc.text('GUIOSAD v2 — Informe general de evaluaciones', M, 14)
+
+  doc.setTextColor(15, 23, 42); doc.setFontSize(12)
+  doc.text(`${evaluaciones.length} evaluaciones guardadas`, M, 32)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139)
+  doc.text(
+    `Generado el ${new Date().toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' })} · ` +
+    `Adoptar: ${cuenta.A} · Con reservas: ${cuenta.B} · No adoptar: ${cuenta.C}`,
+    M, 37.5,
+  )
+
+  autoTable(doc, {
+    startY: 43,
+    head: [['Software', 'Organización', 'Evaluador', 'Fecha', 'Recomendación', 'Ponderación', 'Desfavorables']],
+    body: filasResumen(evaluaciones),
+    margin: { left: M, right: M },
+    styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [15, 23, 42] },
+    headStyles: { fillColor: [30, 41, 59], textColor: [241, 245, 249], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 5: { halign: 'center' }, 6: { halign: 'center' } },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 4) {
+        const cod = String(data.cell.raw).charAt(0)
+        if (REC_RGB[cod]) { data.cell.styles.textColor = REC_RGB[cod]; data.cell.styles.fontStyle = 'bold' }
+      }
+    },
+  })
+
+  // El detalle factor a factor de cada evaluación, una tras otra.
+  detalles.forEach((d, i) => {
+    let y = (doc.lastAutoTable?.finalY || 43) + 12
+    if (y > H - 50) { doc.addPage(); y = 20 }
+    const cod = d.resultado?.recomendacion?.codigo
+    const [r, g, b] = REC_RGB[cod] || [71, 85, 105]
+    doc.setFillColor(r, g, b)
+    doc.circle(M + 4, y - 1.5, 4, 'F')
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
+    doc.text(cod || '?', M + 4, y - 0.2, { align: 'center' })
+    doc.setTextColor(15, 23, 42); doc.setFontSize(11)
+    doc.text(`${i + 1}. ${d.nombre}`, M + 11, y)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139)
+    doc.text(`Evaluada el ${fechaCorta(d.creado_en)} · Recomendación ${cod || '—'}`, M + 11, y + 4.5)
+
+    autoTable(doc, {
+      startY: y + 8,
+      head: [['Factor', 'Dimensión', 'Imp. relativa', 'Ponderación', 'FODA']],
+      body: filasFactores(d.resultado?.factores || []),
+      margin: { left: M, right: M },
+      styles: { fontSize: 8, cellPadding: 1.8, textColor: [15, 23, 42] },
+      headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85], fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 90 }, 3: { halign: 'center' }, 4: { halign: 'center' } },
+    })
+  })
+
+  const pages = doc.getNumberOfPages()
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i)
+    doc.setFontSize(8); doc.setTextColor(148, 163, 184)
+    doc.text(`GUIOSAD v2 · Informe general · Página ${i} de ${pages}`, W / 2, H - 8, { align: 'center' })
+  }
+
+  doc.save(nombreArchivo('evaluaciones', 'pdf'))
+}
+
+export async function exportarTodasExcel(evaluaciones, detalles) {
+  const fecha = new Date().toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' })
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'GUIOSAD v2'
+  wb.created = new Date()
+
+  /* Hoja 1 · Evaluaciones */
+  const wsE = wb.addWorksheet('Evaluaciones', { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }] })
+  wsE.columns = [{ width: 36 }, { width: 26 }, { width: 22 }, { width: 14 }, { width: 28 }, { width: 13 }, { width: 15 }]
+  encabezadoHoja(wsE, 'GUIOSAD v2 — Todas las evaluaciones', `${evaluaciones.length} evaluaciones · Generado el ${fecha}`, 7)
+  const cabE = wsE.getRow(4)
+  cabE.values = ['Software', 'Organización', 'Evaluador', 'Fecha', 'Recomendación', 'Ponderación', 'Desfavorables']
+  estilarCabecera(cabE, 26)
+  wsE.autoFilter = { from: 'A4', to: 'G4' }
+  filasResumen(evaluaciones).forEach((fila, i) => {
+    const row = wsE.addRow(fila)
+    row.height = 18
+    row.eachCell({ includeEmpty: true }, (cell, col) => {
+      cell.border = BORDES
+      cell.font = { size: 10, color: { argb: XL.slateText } }
+      cell.alignment = { vertical: 'middle', horizontal: col === 1 || col === 2 || col === 3 ? 'left' : 'center', indent: col <= 3 ? 1 : 0 }
+      if (i % 2 === 1) cell.fill = fill(XL.zebra)
+    })
+    const cod = evaluaciones[i].recomendacion_codigo
+    if (XL.rec[cod]) {
+      const c = row.getCell(5)
+      c.fill = fill(XL.rec[cod])
+      c.font = { size: 10, bold: true, color: { argb: XL.blanco } }
+    }
+  })
+
+  /* Hoja 2 · Factores de todas las evaluaciones */
+  const wsF = wb.addWorksheet('Factores', { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }] })
+  wsF.columns = [{ width: 34 }, { width: 44 }, { width: 16 }, { width: 18 }, { width: 11 }, { width: 11 }, { width: 16 }, { width: 15 }]
+  encabezadoHoja(wsF, 'Factores — todas las evaluaciones', 'Importancia relativa, ponderación global (1–4) y clasificación FODA por factor', 8)
+  const cabF = wsF.getRow(4)
+  cabF.values = ['Evaluación', 'Factor', 'Dimensión', 'Importancia relativa', 'Relevante', 'Alcance', 'Ponderación (1–4)', 'FODA']
+  estilarCabecera(cabF, 26)
+  wsF.autoFilter = { from: 'A4', to: 'H4' }
+  let n = 0
+  detalles.forEach(d => {
+    (d.resultado?.factores || []).forEach(f => {
+      const sinPond = f.ponderacion_global === null || f.ponderacion_global === undefined
+      const row = wsF.addRow([
+        d.nombre, f.factor_nombre, f.dimension, f.ir_etiqueta || '', f.relevante ? 'Sí' : 'No',
+        f.alcance || '—', sinPond ? '—' : f.ponderacion_global, f.foda_categoria || '—',
+      ])
+      row.height = 18
+      row.eachCell({ includeEmpty: true }, (cell, col) => {
+        cell.border = BORDES
+        cell.font = { size: 10, color: { argb: XL.slateText } }
+        cell.alignment = { vertical: 'middle', horizontal: col <= 2 ? 'left' : 'center', indent: col <= 2 ? 1 : 0 }
+        if (n % 2 === 1) cell.fill = fill(XL.zebra)
+      })
+      if (XL.ir[f.ir_etiqueta]) row.getCell(4).fill = fill(XL.ir[f.ir_etiqueta])
+      if (!sinPond) {
+        const cP = row.getCell(7)
+        cP.numFmt = '0.00'
+        cP.font = { size: 10, bold: true, color: { argb: f.ponderacion_global >= 3 ? 'FF047857' : 'FFB91C1C' } }
+      }
+      if (f.foda_categoria) {
+        const cF = row.getCell(8)
+        cF.fill = fill(XL.foda[f.foda_categoria])
+        cF.font = { size: 10, bold: true, color: { argb: XL.blanco } }
+      }
+      n++
+    })
+  })
+
+  wb.eachSheet(ws => {
+    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 }
+    ws.headerFooter.oddFooter = '&L GUIOSAD v2 · Todas las evaluaciones &R Página &P de &N'
+  })
+
+  await descargarLibro(wb, nombreArchivo('evaluaciones', 'xlsx'))
 }
 

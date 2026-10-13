@@ -14,7 +14,9 @@ function icono(nombre, trazo) {
 // Navegación
 export const IcoPanel = icono('IcoPanel', <><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></>)
 export const IcoMas = icono('IcoMas', <path d="M12 5v14M5 12h14"/>)
-export const IcoHistorial = icono('IcoHistorial', <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>)
+export const IcoHistorial = icono('IcoHistorial', <><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></>)
+export const IcoNuevaEval = icono('IcoNuevaEval', <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 12v6M9 15h6"/></>)
+export const IcoReloj = icono('IcoReloj', <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>)
 export const IcoMenu = icono('IcoMenu', <path d="M4 6h16M4 12h16M4 18h16"/>)
 export const IcoOcultar = icono('IcoOcultar', <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/>)
 export const IcoSol = icono('IcoSol', <><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></>)

@@ -1,12 +1,13 @@
-// Paso inicial: una cabecera degradada con la pregunta y el nombre del software
-// como buscador, la ficha con el resto de datos (todos opcionales) y, debajo,
-// las evaluaciones recientes por si se quiere continuar una.
-import { useState, useEffect } from 'react'
+// Paso inicial: una portada con buscador de evaluaciones y accesos rápidos, la
+// ficha del software a evaluar (todo opcional) y, debajo, las evaluaciones
+// recientes o las que coinciden con la búsqueda, por si se quiere continuar una.
+import { useState, useEffect, useRef } from 'react'
 import { nombreEvaluacion } from '../../utils/software.js'
-import { getHistorial } from '../../api/guiosad.js'
+import { getHistorial, getEvaluacion } from '../../api/guiosad.js'
 import { REC_V, REC_CORTO } from '../../utils/recomendacion.js'
+import { exportarTodas, precargarExportacion } from '../../utils/exportacion.js'
 import { fechaCorta } from '../../utils/fecha.js'
-import { IcoBuscar, IcoFlecha } from '../Iconos.jsx'
+import { IcoBuscar, IcoPanel, IcoHistorial, IcoEditar, IcoPdf, IcoExcel, IcoMas } from '../Iconos.jsx'
 
 const LICENCIAS = [
   'GPL / AGPL',
@@ -28,15 +29,59 @@ function Campo({ etiqueta, children }) {
   )
 }
 
-export default function StepSoftware({ software, onChange, onStart, onReabrir }) {
+export default function StepSoftware({ software, onChange, onStart, onReabrir, onIr, onError }) {
   const set = (campo) => (e) => onChange({ ...software, [campo]: e.target.value })
-  const [recientes, setRecientes] = useState([])
+  const [historial, setHistorial] = useState([])
+  const [busqueda, setBusqueda] = useState('')
+  const [exportando, setExportando] = useState(null)
+  const nombreRef = useRef(null)
 
   useEffect(() => {
     let vigente = true
-    getHistorial().then(h => { if (vigente) setRecientes(h.slice(0, 6)) }).catch(() => {})
+    getHistorial().then(h => { if (vigente) setHistorial(h) }).catch(() => {})
+    precargarExportacion()
     return () => { vigente = false }
   }, [])
+
+  const q = busqueda.trim().toLowerCase()
+  const coincide = e => [e.nombre, e.software_nombre, e.organizacion, e.evaluador]
+    .some(v => (v || '').toLowerCase().includes(q))
+  const mostradas = q ? historial.filter(coincide) : historial.slice(0, 6)
+
+  // Informe o libro con TODAS las evaluaciones guardadas: se piden los
+  // resultados completos y se entregan en un solo archivo.
+  async function descargarTodas(tipo) {
+    if (!historial.length) { onError?.('Todavía no hay evaluaciones que descargar.'); return }
+    setExportando(tipo)
+    try {
+      const detalles = await Promise.all(historial.map(e => getEvaluacion(e.id)))
+      await exportarTodas(tipo, historial, detalles)
+    } catch (e) {
+      onError?.(e.message)
+    } finally {
+      setExportando(null)
+    }
+  }
+
+  // Lo buscado no existe: se toma como nombre del software nuevo.
+  function evaluarBuscado() {
+    onChange({ ...software, nombre: busqueda.trim() })
+    setBusqueda('')
+    nombreRef.current?.focus()
+    nombreRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  const ACCESOS = [
+    { id: 'panel', etiqueta: 'Panel', tono: 'azul', Icono: IcoPanel, hacer: () => onIr?.('dashboard') },
+    { id: 'historial', etiqueta: 'Historial', tono: 'morado', Icono: IcoHistorial, hacer: () => onIr?.('historial') },
+    { id: 'ultima', etiqueta: 'Última evaluación', tono: 'turquesa', Icono: IcoEditar,
+      hacer: () => onReabrir?.(historial[0].id), inactivo: !historial.length,
+      pista: historial[0] ? `Reabrir «${historial[0].nombre}»` : 'Aún no hay evaluaciones' },
+    { id: 'pdf', etiqueta: 'Informe PDF', tono: 'rojo', Icono: IcoPdf, hacer: () => descargarTodas('pdf'),
+      pista: 'Todas las evaluaciones en un informe PDF' },
+    { id: 'excel', etiqueta: 'Libro Excel', tono: 'verde', Icono: IcoExcel, hacer: () => descargarTodas('excel'),
+      pista: 'Todas las evaluaciones en un libro Excel' },
+  ]
 
   const empezar = (e) => { e.preventDefault(); onStart() }
   const titulo = nombreEvaluacion(software)
@@ -46,22 +91,31 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir })
       <section className="hero">
         <span className="hero-paso">Paso 1 de 4</span>
         <h2 className="hero-titulo">¿Qué software evaluamos hoy?</h2>
-        <form className="hero-buscar" onSubmit={empezar}>
+        <form className="hero-buscar" onSubmit={e => e.preventDefault()} role="search">
           <IcoBuscar />
           <input
             className="hero-input"
-            placeholder="Nombre del software: Moodle, Odoo, LibreOffice…"
-            value={software.nombre}
-            onChange={set('nombre')}
-            autoFocus
-            aria-label="Nombre del software"
+            placeholder="Buscar evaluaciones por software, organización o evaluador…"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            aria-label="Buscar evaluaciones"
           />
-          <button type="submit" className="hero-boton">Comenzar <IcoFlecha /></button>
         </form>
-        <p className="hero-nota">
-          Puedes empezar solo con el nombre, o sin nada. Estos datos identifican qué se analizó:
-          no intervienen en el cálculo.
-        </p>
+        <div className="hero-accesos">
+          {ACCESOS.map(({ id, etiqueta, tono, Icono, hacer, inactivo, pista }) => (
+            <button
+              key={id}
+              type="button"
+              className={`acceso acceso-${tono}`}
+              onClick={hacer}
+              disabled={inactivo || Boolean(exportando)}
+              title={pista || etiqueta}
+            >
+              <span className="acceso-circulo"><Icono /></span>
+              <span className="acceso-etiqueta">{exportando === id ? 'Preparando…' : etiqueta}</span>
+            </button>
+          ))}
+        </div>
       </section>
 
       <form className="card sw-form" onSubmit={empezar}>
@@ -73,6 +127,15 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir })
         </div>
 
         <div className="sw-rejilla">
+          <Campo etiqueta="Nombre del software">
+            <input
+              ref={nombreRef}
+              className="field-input"
+              placeholder="Moodle, Odoo, LibreOffice…"
+              value={software.nombre}
+              onChange={set('nombre')}
+            />
+          </Campo>
           <Campo etiqueta="Versión">
             <input className="field-input" placeholder="4.3" value={software.version} onChange={set('version')} />
           </Campo>
@@ -94,16 +157,18 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir })
         </div>
 
         <div className="sw-acciones">
-          <span className="sw-acciones-nota">Lo siguiente: ajustar la importancia de los 18 factores.</span>
-          <button type="submit" className="btn btn-primary">Comenzar evaluación <IcoFlecha /></button>
+          <span className="sw-acciones-nota">Nada de esto interviene en el cálculo. Lo siguiente: ajustar la importancia de los 18 factores.</span>
+          <button type="submit" className="btn btn-primary">Comenzar evaluación</button>
         </div>
       </form>
 
-      {recientes.length > 0 && (
+      {(mostradas.length > 0 || q) && (
         <section className="recientes">
-          <h3 className="recientes-titulo">También podrías continuar con…</h3>
+          <h3 className="recientes-titulo">
+            {q ? `Resultados para «${busqueda.trim()}»` : 'También podrías continuar con…'}
+          </h3>
           <div className="recientes-fila">
-            {recientes.map(ev => {
+            {mostradas.map(ev => {
               const cod = ev.recomendacion_codigo
               return (
                 <button
@@ -122,6 +187,14 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir })
                 </button>
               )
             })}
+            {q && (
+              <button type="button" className="reciente reciente-nuevo" onClick={evaluarBuscado}
+                      title="Usar lo buscado como nombre del software a evaluar">
+                <span className="reciente-miniatura"><IcoMas /></span>
+                <span className="reciente-nombre">Evaluar «{busqueda.trim()}»</span>
+                <span className="reciente-fecha">como software nuevo</span>
+              </button>
+            )}
           </div>
         </section>
       )}

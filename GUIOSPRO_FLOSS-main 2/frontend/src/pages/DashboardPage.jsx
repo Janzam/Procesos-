@@ -16,13 +16,14 @@ const FODA = [
   { clave: 'Amenaza',     etiqueta: 'Amenazas',      color: 'var(--foda-a)' },
 ]
 
+// El detalle de cada cifra se muestra como texto emergente, no debajo: la ficha
+// queda con el icono, la etiqueta y el número.
 function Ficha({ etiqueta, valor, pie, tono, Icono, texto }) {
   return (
-    <li className={`ficha ficha-${tono}${texto ? ' ficha-texto' : ''}`}>
+    <li className={`ficha ficha-${tono}${texto ? ' ficha-texto' : ''}`} title={pie ? `${etiqueta}: ${valor} · ${pie}` : undefined}>
       <span className="ficha-icono"><Icono /></span>
       <span className="ficha-etiqueta">{etiqueta}</span>
       <span className="ficha-valor">{valor}</span>
-      {pie && <span className="ficha-pie">{pie}</span>}
     </li>
   )
 }
