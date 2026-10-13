@@ -195,6 +195,21 @@ export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
     onFinEdicion?.()
   }
 
+  // Salto directo desde el stepper. Ir a Resultados equivale a calcular (y, si
+  // se está editando, guardar): así lo que se muestra nunca es un resultado
+  // anterior a las respuestas actuales.
+  function irAPaso(destino) {
+    if (destino === step || loading) return
+    if (destino === 3) { handleCalcular(); return }
+    setStep(destino)
+  }
+  const pistasPasos = [
+    'Datos del software',
+    'Importancia de los factores',
+    'Cumplimiento de los subfactores',
+    editando ? 'Guardar los cambios y ver resultados' : 'Calcular y ver resultados',
+  ]
+
   const titulo = step > 0 && software.nombre
     ? `Evaluación: ${nombreCorto(software)}`
     : 'Nueva Evaluación'
@@ -218,7 +233,13 @@ export default function EvaluacionPage({ editarId, onFinEdicion, onNavigate }) {
         </div>
       )}
 
-      <Stepper steps={STEPS} current={step} />
+      <Stepper
+        steps={STEPS}
+        current={step}
+        onIr={irAPaso}
+        pistas={pistasPasos}
+        deshabilitado={loading || (step > 0 && cargandoFactores)}
+      />
 
       {error && (
         <div className="error-msg" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
