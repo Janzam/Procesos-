@@ -292,7 +292,7 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
             iaDisponible={iaDisponible}
           />
         )}
-        {step === 3 && <StepResultados resultado={resultado} nombre={nombreEvaluacion(software)} evaluacionId={evaluacionId} />}
+        {step === 3 && <StepResultados resultado={resultado} nombre={nombreEvaluacion(software)} software={softwareAPayload(software)} evaluacionId={evaluacionId} />}
       </div>
 
       {step > 0 && (

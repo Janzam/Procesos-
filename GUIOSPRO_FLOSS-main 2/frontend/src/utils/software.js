@@ -38,6 +38,19 @@ export function softwareAPayload(sw) {
   }
 }
 
+// Campos tal como los devuelve la API, con su etiqueta. Los usan la ficha del
+// historial y los informes exportados (RF-02: los datos aparecen en el informe).
+export const CAMPOS_SOFTWARE = [
+  ['software_nombre', 'Software'], ['version', 'Versión'], ['licencia', 'Licencia'],
+  ['proveedor', 'Proveedor'], ['organizacion', 'Organización'], ['evaluador', 'Evaluador'],
+]
+
+// [etiqueta, valor] de los datos que se rellenaron; las evaluaciones antiguas no los tienen.
+export function datosSoftware(datos) {
+  if (!datos) return []
+  return CAMPOS_SOFTWARE.filter(([k]) => datos[k]).map(([k, etiqueta]) => [etiqueta, datos[k]])
+}
+
 // De los campos que devuelve la API al formulario.
 export function softwareDesdeApi(datos) {
   const sw = { ...SOFTWARE_VACIO }

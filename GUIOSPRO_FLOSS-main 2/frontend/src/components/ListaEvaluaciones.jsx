@@ -70,7 +70,7 @@ export default function ListaEvaluaciones({ evaluaciones, onVer, onEditar, onBor
     setOcupado(`${ev.id}:${tipo}`)
     try {
       const detalle = await getEvaluacion(ev.id)
-      await exportarResultado(tipo, detalle.nombre, detalle.resultado)
+      await exportarResultado(tipo, detalle.nombre, detalle.resultado, detalle.software)
     } catch (e) {
       onError?.(e.message)
     } finally {

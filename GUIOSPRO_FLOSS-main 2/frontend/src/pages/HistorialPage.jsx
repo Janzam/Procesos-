@@ -9,12 +9,7 @@ import ListaEvaluaciones from '../components/ListaEvaluaciones.jsx'
 import StepResultados from '../components/wizard/StepResultados.jsx'
 import { IcoVolver, IcoEditar, IcoBorrar, IcoVacio, IcoMas } from '../components/Iconos.jsx'
 
-// Datos del software evaluado. Solo se muestran los que se rellenaron; las
-// evaluaciones guardadas antes de esta versión no los tienen.
-const CAMPOS_SOFTWARE = [
-  ['software_nombre', 'Software'], ['version', 'Versión'], ['licencia', 'Licencia'],
-  ['proveedor', 'Proveedor'], ['organizacion', 'Organización'], ['evaluador', 'Evaluador'],
-]
+import { CAMPOS_SOFTWARE } from '../utils/software.js'
 
 function Veredicto({ codigo }) {
   if (!codigo) return null
@@ -158,6 +153,7 @@ export default function HistorialPage({ onNavigate, verId }) {
           <StepResultados
             resultado={detalle.resultado}
             nombre={detalle.nombre}
+            software={detalle.software}
             evaluacionId={detalle.id}
           />
 

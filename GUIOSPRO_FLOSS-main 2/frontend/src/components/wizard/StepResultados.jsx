@@ -28,7 +28,7 @@ function MiniBar({ val, max = 4 }) {
   )
 }
 
-export default function StepResultados({ resultado, nombre, evaluacionId }) {
+export default function StepResultados({ resultado, nombre, software, evaluacionId }) {
   const [mostrarGraficos, setMostrarGraficos] = useState(leerMostrarGraficos)
   useEffect(() => {
     try { localStorage.setItem(GRAFICOS_KEY, mostrarGraficos ? 'si' : 'no') } catch { /* ignorar */ }
@@ -128,7 +128,7 @@ export default function StepResultados({ resultado, nombre, evaluacionId }) {
       <div className="results-footer">
         <AccionesExportar
           titulo="Descargar este informe"
-          onExportar={tipo => exportarResultado(tipo, nombre, resultado)}
+          onExportar={tipo => exportarResultado(tipo, nombre, resultado, software)}
         />
       </div>
     </div>

@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import ExcelJS from 'exceljs'
 import { REC_LABEL, FODA_PLURAL } from './recomendacion.js'
+import { datosSoftware } from './software.js'
 
 const REC_RGB   = { A: [16, 185, 129], B: [245, 158, 11], C: [239, 68, 68] }
 const FODA_CATS = ['Fortaleza', 'Oportunidad', 'Debilidad', 'Amenaza']
@@ -32,7 +33,7 @@ function agruparFoda(factores) {
   return g
 }
 
-export function exportarPDF(nombre, resultado) {
+export function exportarPDF(nombre, resultado, software) {
   const { factores, recomendacion } = resultado
   const cod = recomendacion.codigo
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -52,18 +53,38 @@ export function exportarPDF(nombre, resultado) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139)
   doc.text(`Generado el ${new Date().toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' })}`, M, 37.5)
 
+  // Datos del software evaluado (RF-02), en pares etiqueta/valor de dos en dos
+  let y0 = 44
+  const datos = datosSoftware(software)
+  if (datos.length) {
+    const filas = []
+    for (let i = 0; i < datos.length; i += 2) filas.push([...datos[i], ...(datos[i + 1] || ['', ''])])
+    autoTable(doc, {
+      startY: 42,
+      body: filas,
+      theme: 'plain',
+      margin: { left: M, right: M },
+      styles: { fontSize: 8.5, cellPadding: 1.6, textColor: [15, 23, 42] },
+      columnStyles: {
+        0: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 24 },
+        2: { fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 24 },
+      },
+    })
+    y0 = doc.lastAutoTable.finalY + 5
+  }
+
   // Recomendación
   const [r, g, b] = REC_RGB[cod] || [71, 85, 105]
   doc.setFillColor(r, g, b)
-  doc.circle(M + 6, 49, 6, 'F')
+  doc.circle(M + 6, y0 + 5, 6, 'F')
   doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12)
-  doc.text(cod || '?', M + 6, 50.5, { align: 'center' })
+  doc.text(cod || '?', M + 6, y0 + 6.5, { align: 'center' })
   doc.setTextColor(15, 23, 42); doc.setFontSize(12)
-  doc.text(`Recomendación ${cod} — ${REC_LABEL[cod] || 'Resultado'}`, M + 16, 47)
+  doc.text(`Recomendación ${cod} — ${REC_LABEL[cod] || 'Resultado'}`, M + 16, y0 + 3)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(51, 65, 85)
   const texto = doc.splitTextToSize(recomendacion.texto || '', W - M * 2 - 16)
-  doc.text(texto, M + 16, 52)
-  let y = 52 + texto.length * 4.2 + 6
+  doc.text(texto, M + 16, y0 + 8)
+  let y = y0 + 8 + texto.length * 4.2 + 6
 
   // Tabla de factores
   autoTable(doc, {
@@ -162,7 +183,7 @@ function encabezadoHoja(ws, titulo, subtitulo, colFin) {
   ws.getRow(3).height = 8
 }
 
-export async function exportarExcel(nombre, resultado) {
+export async function exportarExcel(nombre, resultado, software) {
   const { factores, recomendacion } = resultado
   const cod = recomendacion.codigo
   const titulo = nombre || 'Evaluación sin nombre'
@@ -180,6 +201,7 @@ export async function exportarExcel(nombre, resultado) {
 
   const filasResumen = [
     ['Evaluación', titulo],
+    ...datosSoftware(software),
     ['Fecha de exportación', fecha],
     ['Recomendación', `${cod} — ${REC_LABEL[cod] || ''}`],
     ['Detalle', recomendacion.texto || ''],

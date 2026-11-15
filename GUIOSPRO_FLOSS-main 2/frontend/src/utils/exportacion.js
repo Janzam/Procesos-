@@ -11,10 +11,11 @@ export function precargarExportacion() {
   return modulo
 }
 
-export async function exportarResultado(tipo, nombre, resultado) {
+// `software`: datos del software con los nombres de la API (software_nombre, version…).
+export async function exportarResultado(tipo, nombre, resultado, software) {
   const mod = await precargarExportacion()
-  if (tipo === 'pdf') mod.exportarPDF(nombre, resultado)
-  else await mod.exportarExcel(nombre, resultado)
+  if (tipo === 'pdf') mod.exportarPDF(nombre, resultado, software)
+  else await mod.exportarExcel(nombre, resultado, software)
 }
 
 // Todas las evaluaciones en un solo archivo: `evaluaciones` es el listado y
