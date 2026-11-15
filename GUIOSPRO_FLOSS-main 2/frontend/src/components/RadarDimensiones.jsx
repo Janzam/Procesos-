@@ -14,7 +14,9 @@ export default function RadarDimensiones({ factores }) {
     <div className="card" style={{ padding: '14px 16px' }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--text-primary)' }}>Radar por Dimensión</div>
       <ResponsiveContainer width="100%" height={320}>
-        <RadarChart data={data} outerRadius="78%" style={{ fontFamily: 'Inter, sans-serif' }}>
+        {/* margen lateral: sin él, «Organizacional» se sale del SVG y aparece cortada (DEF-09) */}
+        <RadarChart data={data} outerRadius="72%" margin={{ top: 10, right: 44, bottom: 10, left: 44 }}
+          style={{ fontFamily: 'Inter, sans-serif' }}>
           <PolarGrid stroke="var(--chart-grid)" />
           <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 500 }} />
           <PolarRadiusAxis angle={90} domain={[0, 4]} tickCount={5} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
