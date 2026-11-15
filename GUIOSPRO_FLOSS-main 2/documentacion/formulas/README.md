@@ -412,6 +412,12 @@ coherente consigo misma y con la Figura 5.10 es **la Tabla 5.3**.
 > Esto hay que plantearlo como una pregunta al autor, no como una corrección. La decisión
 > de alinear el catálogo con la Tabla 5.3 le corresponde a él.
 
+**Resuelto (DEF-07, noviembre de 2026).** Consultado el autor, aprobó alinear la
+importancia sugerida con la Tabla 5.3. Solo cambian esos dos valores en
+`backend/fixtures/factores.json` (Usabilidad 3 → 2, Apoyo de la alta dirección 2 → 3);
+el resto del cálculo no se toca. `verificar.py` da ahora «coinciden 18 de 18» y las
+pruebas del motor siguen sin fallos.
+
 ### 5.4 Por qué IS solo puede valer 2 o 3
 
 Porque **IE vale 3 en los dieciocho factores**. Mirando la fila 3 de la matriz —la que

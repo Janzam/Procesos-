@@ -4,6 +4,16 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v3.2.1 — Correcciones de QA (rama `creatividad`, 2026-11-15)
+
+| Defecto | Cambio |
+|---|---|
+| DEF-07 | Importancia sugerida alineada con la Tabla 5.3, con aprobación del autor: Usabilidad 3 → 2 y Apoyo de la alta dirección 2 → 3 (`fixtures/factores.json`). Solo cambian esos dos valores; las evaluaciones guardadas se recalculan con ellos al abrirse. |
+| DEF-08 | El informe PDF y Excel incluye los datos del software evaluado (licencia, proveedor, evaluador…). |
+| DEF-09 | La etiqueta «Organizacional» del radar ya no sale cortada. |
+
+---
+
 ## v3.2.0 — Rediseño de la interfaz (rama `creatividad`, 2026-10-12)
 
 Rediseño visual tomando como referencia un panel de proyectos en tarjetas, la
