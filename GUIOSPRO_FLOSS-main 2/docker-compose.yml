@@ -7,6 +7,8 @@
 # Funciona sin ningún fichero .env: cada variable trae su valor por defecto.
 # Para cambiarlos, copia .env.example a .env y edítalo.
 
+name: guiosad-opencode
+
 services:
   db:
     image: postgres:16-alpine
@@ -46,11 +48,32 @@ services:
       # y la interfaz oculta el asistente.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       IA_HABILITADA: ${IA_HABILITADA:-True}
+      # Importancia de la literatura. La clave de OpenAlex/Crossref es solo un correo.
+      LIT_OPENALEX_MAILTO: ${LIT_OPENALEX_MAILTO:-}
+      OPENALEX_API_KEY: ${OPENALEX_API_KEY:-}
+      SCOPUS_API_KEY: ${SCOPUS_API_KEY:-}
+      SCOPUS_INST_TOKEN: ${SCOPUS_INST_TOKEN:-}
+      SCOPUS_VIEW: ${SCOPUS_VIEW-STANDARD}
+      SCOPUS_QUERY: ${SCOPUS_QUERY:-}
+      LIT_PROVEEDOR_IA: ${LIT_PROVEEDOR_IA:-anthropic}
+      LIT_CLASIFICADOR: ${LIT_CLASIFICADOR:-anthropic}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_API_KEYS: ${GROQ_API_KEYS:-}
+      LIT_GROQ_SEED: ${LIT_GROQ_SEED:-42}
+      LIT_GROQ_TPM: ${LIT_GROQ_TPM:-8000}
+      LIT_GROQ_TPM_MARGEN: ${LIT_GROQ_TPM_MARGEN:-0.85}
+      LIT_GROQ_REINTENTOS: ${LIT_GROQ_REINTENTOS:-5}
+      LIT_GROQ_RESUMEN_MAX: ${LIT_GROQ_RESUMEN_MAX:-1800}
+      LIT_MODELO: ${LIT_MODELO:-}
+      LIT_METODO_TC: ${LIT_METODO_TC:-menciones}
+      LIT_MAX_PAGINAS: ${LIT_MAX_PAGINAS:-10}
+      LIT_MAX_ARTICULOS: ${LIT_MAX_ARTICULOS:-0}
+      LIT_REINTENTOS_PARSEO: ${LIT_REINTENTOS_PARSEO:-1}
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       # El código se monta para que un cambio no obligue a reconstruir la imagen.
       - ./backend:/app
@@ -66,7 +89,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - "3001:80"
     depends_on:
       backend:
         condition: service_healthy

@@ -20,6 +20,6 @@ cd "Procesos-/GUIOSPRO_FLOSS-main 2"
 docker compose up --build
 ```
 
-Cuando termine, la aplicación queda en **http://localhost:3000** y la API en
-**http://localhost:8000/api/**. El resto de opciones (desarrollo sin Docker,
+Cuando termine, la aplicación queda en **http://localhost:3001** y la API en
+**http://localhost:8001/api/** (Claude usa 3000/8000; así pueden coexistir). El resto de opciones (desarrollo sin Docker,
 asistente con IA, pruebas) están en el README del proyecto.

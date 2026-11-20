@@ -119,3 +119,50 @@ export function pedirInforme(id) {
 export function pedirPlanNarrado(id) {
   return enviar(`/evaluaciones/${id}/plan/`)
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Importancia de la literatura (innovación CP2)
+// La IA clasifica artículos; el cálculo de IL e IS lo hace el backend.
+// ─────────────────────────────────────────────────────────────────────
+
+export function getConfigLiteratura() {
+  return pedir('/literatura/config/', 'Error al cargar la configuración de literatura')
+}
+
+export function getCorridas() {
+  return pedir('/literatura/corridas/', 'Error al cargar las corridas')
+}
+
+export function crearCorrida(payload) {
+  return pedir('/literatura/corridas/', 'Error al iniciar la corrida', conCuerpo('POST', payload))
+}
+
+export function getCorrida(id) {
+  return pedir(`/literatura/corridas/${id}/`, 'Error al cargar la corrida')
+}
+
+export function getProgreso(id, desde) {
+  const sufijo = desde ? `?desde=${desde}` : ''
+  return pedir(`/literatura/corridas/${id}/progreso/${sufijo}`, 'Error al consultar el progreso')
+}
+
+export function reanudarCorrida(id) {
+  return pedir(`/literatura/corridas/${id}/reanudar/`, 'Error al reanudar la corrida', {
+    method: 'POST',
+  })
+}
+
+export function activarCorrida(id, accion) {
+  return enviar(`/literatura/corridas/${id}/activar/`, { accion })
+}
+
+export function getComparacion(id) {
+  return pedir(`/literatura/corridas/${id}/comparar/`, 'Error al cargar la comparación')
+}
+
+export async function eliminarCorrida(id) {
+  const res = await fetch(`${BASE}/literatura/corridas/${id}/`, { method: 'DELETE' })
+  if (res.status === 204) return
+  const cuerpo = await res.json().catch(() => ({}))
+  throw new Error(cuerpo.detail || 'Error al eliminar la corrida')
+}

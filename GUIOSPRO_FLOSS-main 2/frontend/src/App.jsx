@@ -8,11 +8,13 @@ import HistorialPage from './pages/HistorialPage.jsx'
 import { IcoMenu, IcoSol, IcoLuna } from './components/Iconos.jsx'
 // El panel se carga solo cuando se entra en él, no al abrir la aplicación.
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'))
+const LiteraturaPage = lazy(() => import('./pages/LiteraturaPage.jsx'))
 
 const PAGE_TITLES = {
   dashboard: 'Panel',
   evaluacion: 'Nueva evaluación',
   historial: 'Historial de evaluaciones',
+  literatura: 'Importancia de la literatura',
 }
 
 // Tema: claro por defecto; el oscuro se recuerda si se eligió.
@@ -94,6 +96,7 @@ export default function App() {
         <main className="layout-content">
           <Suspense fallback={<p className="an-vacio">Cargando…</p>}>
             {page === 'dashboard' && <DashboardPage onNavigate={navegar} />}
+            {page === 'literatura' && <LiteraturaPage />}
           </Suspense>
           {page === 'evaluacion' && (
             <EvaluacionPage editarId={editarId} reinicio={reinicio} onFinEdicion={() => setEditarId(null)} onNavigate={navegar} />

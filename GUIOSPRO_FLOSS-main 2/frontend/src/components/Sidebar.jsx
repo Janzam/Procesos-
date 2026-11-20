@@ -1,11 +1,12 @@
 // Menú lateral: marca, navegación con un icono en losange de color por entrada
 // y, al pie, una tarjeta con la metodología en la que se basa el sistema.
-import { IcoPanel, IcoNuevaEval, IcoHistorial, IcoOcultar, IcoCapas } from './Iconos.jsx'
+import { IcoPanel, IcoNuevaEval, IcoHistorial, IcoOcultar, IcoCapas, IcoChispa } from './Iconos.jsx'
 
 const ITEMS = [
   { id: 'dashboard',  label: 'Panel',            desc: 'Resumen y evaluaciones', tono: 'azul',   Icono: IcoPanel },
   { id: 'evaluacion', label: 'Nueva evaluación', desc: 'Asistente de 4 pasos',   tono: 'verde',  Icono: IcoNuevaEval },
   { id: 'historial',  label: 'Historial',        desc: 'Resultados guardados',   tono: 'morado', Icono: IcoHistorial },
+  { id: 'literatura', label: 'Literatura IA',    desc: 'Importancia sugerida',   tono: 'naranja', Icono: IcoChispa },
 ]
 
 export default function Sidebar({ page, onNavigate, onHide }) {

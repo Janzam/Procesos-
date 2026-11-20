@@ -51,3 +51,8 @@ secrets/
 # Sistema original y diagramas: se conservan en el equipo, fuera del repositorio
 docs/
 proyecto base 0/
+documentacion/
+
+# ─── Entregables locales (no se versionan) ───────────
+entrega/
+*.dump

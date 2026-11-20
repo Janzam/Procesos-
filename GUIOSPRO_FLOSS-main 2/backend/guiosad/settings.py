@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from decouple import config
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
@@ -16,7 +20,10 @@ INSTALLED_APPS = [
     'factores',
     'evaluaciones',
     'recomendaciones',
+    'literatura',
 ]
+
+FIXTURE_DIRS = [BASE_DIR / 'fixtures']
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -84,3 +91,67 @@ CORS_ALLOW_ALL_ORIGINS = True
 # oculta el asistente (RNF-13). Nunca participa en el calculo.
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
 IA_HABILITADA = config('IA_HABILITADA', default=True, cast=bool)
+
+# ── Importancia de la literatura (innovación CP2) ──
+# La IA solo clasifica artículos: el conteo y las fórmulas 5.1/5.2 y la Figura
+# 5.10 se ejecutan siempre en codigo determinista (literatura/calculo.py).
+LIT_OPENALEX_MAILTO = config('LIT_OPENALEX_MAILTO', default='')
+OPENALEX_API_KEY = config('OPENALEX_API_KEY', default='')
+SCOPUS_API_KEY = config('SCOPUS_API_KEY', default='')
+SCOPUS_INST_TOKEN = config('SCOPUS_INST_TOKEN', default='')
+SCOPUS_VIEW = config('SCOPUS_VIEW', default='STANDARD')
+SCOPUS_QUERY = config('SCOPUS_QUERY', default='')
+LIT_CLASIFICADOR = config('LIT_CLASIFICADOR', default='anthropic')
+LIT_PROVEEDOR_IA = config('LIT_PROVEEDOR_IA', default=LIT_CLASIFICADOR)
+GROQ_API_KEY = config('GROQ_API_KEY', default='')
+GROQ_API_KEYS = [
+    clave.strip()
+    for clave in config('GROQ_API_KEYS', default='').split(',')
+    if clave.strip()
+]
+LIT_GROQ_SEED = config('LIT_GROQ_SEED', default=42, cast=int)
+LIT_GROQ_TPM = config('LIT_GROQ_TPM', default=8000, cast=int)
+LIT_GROQ_TPM_MARGEN = config('LIT_GROQ_TPM_MARGEN', default=0.85, cast=float)
+LIT_GROQ_REINTENTOS = config('LIT_GROQ_REINTENTOS', default=5, cast=int)
+LIT_GROQ_RESUMEN_MAX = config('LIT_GROQ_RESUMEN_MAX', default=1800, cast=int)
+LIT_MODELO = config('LIT_MODELO', default='')
+_MODELOS_POR_DEFECTO = {
+    'anthropic': 'claude-opus-5-5',
+    'groq': 'openai/gpt-oss-120b',
+    'demo': 'demo-determinista',
+}
+if not LIT_MODELO:
+    LIT_MODELO = _MODELOS_POR_DEFECTO.get(LIT_PROVEEDOR_IA, _MODELOS_POR_DEFECTO['anthropic'])
+LIT_METODO_TC = config('LIT_METODO_TC', default='menciones')
+LIT_MAX_PAGINAS = config('LIT_MAX_PAGINAS', default=10, cast=int)
+LIT_MAX_ARTICULOS = config('LIT_MAX_ARTICULOS', default=0, cast=int)
+LIT_REINTENTOS_PARSEO = config('LIT_REINTENTOS_PARSEO', default=1, cast=int)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'guiosad': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'guiosad',
+        },
+    },
+    'loggers': {
+        'literatura': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
