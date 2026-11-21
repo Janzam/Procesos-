@@ -4,6 +4,58 @@ Historial de cambios desde el sistema original (Python + flexx) hasta la versió
 
 ---
 
+## v3.4.0 — Literatura IA en la interfaz, textos de IA guardados y validaciones (2026-11-20)
+
+### Literatura IA
+| Pieza | Qué hace |
+|---|---|
+| Página «Literatura IA» | Cabecera con cifras (corridas, completadas, corrida aplicada, clasificador), selector de rango, bases de datos como tarjetas, validación del formulario junto a cada campo y corridas anteriores plegables. |
+| Sub-apartado «Tabla de resultados» | Resumen de la corrida (se puede ocultar) y la tabla de factores en tres pestañas, una por dimensión. Abre la última corrida consultada o la aplicada al catálogo. |
+| `manage.py sincronizar_catalogo` | Se ejecuta al arrancar, después de cargar las fixtures: vuelve a aplicar la IS de la corrida activada. Antes, cada reinicio dejaba el catálogo con la Tabla 5.3 aunque la corrida siguiera marcada como aplicada. |
+| `GET /api/evaluaciones/catalogo/` | Versión del catálogo, origen de la IS (tesis o corrida) e IS por factor. La página de plantilla lo muestra. |
+| Corridas | El backend rechaza años futuros y nombres de más de 120 caracteres con un mensaje claro. |
+
+### Asistente con IA
+| Pieza | Qué hace |
+|---|---|
+| `guiosad/openai_api.py` | Cliente de Chat Completions para OpenAI y Groq. `IA_PROVEEDOR=anthropic\|openai\|groq` para el asistente y `LIT_PROVEEDOR_IA=…\|openai` para la literatura. |
+| Informe y plan guardados | El informe ejecutivo y el plan de mejora redactados se guardan en la evaluación (migración `0007`) y se reutilizan mientras no cambie. Editar la evaluación los descarta; si el resultado cambia por el catálogo, el informe se marca como desactualizado. |
+
+### Evaluaciones y plantilla
+| Pieza | Qué hace |
+|---|---|
+| Validación | Respuestas repetidas o subfactores enviados en otro factor devuelven 400 en vez de un error 500. Los datos del software tienen límite de longitud y se envían sin espacios sobrantes. Los errores de la API se muestran con su motivo. |
+| Sensibilidad | Respuestas agrupadas por factor, con la recomendación resultante en color y un resumen. |
+| `PLANTILLA_HABILITADA` | Opción de configuración (por defecto `True`) para mostrar u ocultar «Evaluar con plantilla». |
+| `plantillas/` | Plantilla en blanco y un ejemplo lleno para probar la importación. |
+
+---
+
+## v3.3.0 — Evaluar con plantilla (2026-11-20)
+
+Nueva forma de evaluar sin el asistente: se descarga una plantilla Excel, se llena
+fuera del sistema y se sube; el resultado aparece al instante.
+
+| Pieza | Qué hace |
+|---|---|
+| `GET /api/evaluaciones/plantilla/` | Genera la plantilla **en cada descarga** a partir del catálogo de la base de datos (dimensiones, factores, subfactores, importancia sugerida, alcance) y de las escalas de `services.py`. Si cambia el catálogo, cambia la plantilla. |
+| `POST /api/evaluaciones/importar/` | Lee la plantilla, la convierte en la misma evaluación que arma el asistente y la guarda por el mismo camino (`_validar_datos` y `_crear`). El resultado lo calcula el motor, así que **un cambio en las fórmulas se refleja sin tocar la importación**. |
+| `evaluaciones/plantilla.py` | Generación y lectura. Acepta el número (1-4) o el texto de la lista; los errores se devuelven por celda. Una huella del catálogo avisa si la plantilla es de una versión anterior. |
+| Página «Evaluar con plantilla» | Descargar, llenar y subir; al subir salta a los resultados con un resumen de lo que entró y lo que quedó fuera. |
+| `RadarDimensiones.jsx` | Las dimensiones sin datos ya no se dibujan en 0; con menos de tres dimensiones se muestran barras. |
+
+**Exclusión:** un factor sin importancia y sin valoraciones —o con importancia pero
+sin ningún subfactor valorado— queda fuera del cálculo; si queda vacía una dimensión
+entera, la dimensión tampoco entra. El resto sigue las reglas del asistente
+(subfactor vacío = «No cumple», importancia vacía = la mínima, «Ambos» = Interno),
+ahora declaradas en `services.py` como `VALOR_SIN_RESPUESTA` e `IMPORTANCIA_POR_DEFECTO`.
+
+Pruebas: `python manage.py test evaluaciones` (9 casos: mismo resultado que el
+asistente, exclusión de dimensiones, subfactores vacíos, cambio de una regla del
+motor, valores inválidos, archivo ajeno y catálogo cambiado).
+
+---
+
 ## v3.2.1 — Correcciones de QA (rama `creatividad`, 2026-11-15)
 
 | Defecto | Cambio |
