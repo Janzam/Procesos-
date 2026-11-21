@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,7 +15,7 @@ from .serializers import CorridaResumenSerializer, CorridaSerializer, EventoProg
 class ConfigView(APIView):
     def get(self, request):
         return Response({
-            "anio_actual": 2026,
+            "anio_actual": timezone.now().year,
             "anios_sugeridos": [[2008, 2019], [2020, 2025]],
             "fuentes": fuentes.FUENTES_DISPONIBLES,
             "fuentes_configuradas": fuentes.configuradas(),
@@ -58,8 +59,16 @@ class CorridaListaView(APIView):
             return Response({"detail": "max_articulos debe ser un número entero"}, status=status.HTTP_400_BAD_REQUEST)
         forzar_reanalisis = str(datos.get("forzar_reanalisis", False)).lower() in ("1", "true", "yes")
 
-        if inicio < 1990 or fin > 2030 or inicio > fin:
-            return Response({"detail": "Rango de años no válido"}, status=status.HTTP_400_BAD_REQUEST)
+        anio_actual = timezone.now().year
+        if inicio < 1990 or fin > anio_actual or inicio > fin:
+            return Response(
+                {"detail": f"Rango de años no válido: debe ir de 1990 a {anio_actual} y «Desde» no puede ser mayor que «Hasta»."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        nombre = str(datos.get("nombre") or "").strip() or f"Literatura {inicio}-{fin}"
+        if len(nombre) > 120:
+            return Response({"detail": "El nombre de la corrida admite como máximo 120 caracteres."},
+                            status=status.HTTP_400_BAD_REQUEST)
         if not isinstance(fuentes_elegidas, list) or not fuentes_elegidas:
             return Response({"detail": "Selecciona al menos una fuente"}, status=status.HTTP_400_BAD_REQUEST)
         desconocidas = [f for f in fuentes_elegidas if f not in fuentes.FUENTES_DISPONIBLES]
@@ -72,7 +81,7 @@ class CorridaListaView(APIView):
             return Response({"detail": "max_articulos debe estar entre 0 y 10000"}, status=status.HTTP_400_BAD_REQUEST)
 
         corrida = Corrida.objects.create(
-            nombre=str(datos.get("nombre") or f"Literatura {inicio}-{fin}"),
+            nombre=nombre,
             anio_inicio=inicio,
             anio_fin=fin,
             fuentes=fuentes_elegidas,

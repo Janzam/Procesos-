@@ -34,6 +34,7 @@ services:
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py loaddata fixtures/factores.json fixtures/subfactores.json &&
+             python manage.py sincronizar_catalogo &&
              gunicorn guiosad.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60"
     environment:
       DB_NAME: ${DB_NAME:-guiosad}
@@ -48,6 +49,13 @@ services:
       # y la interfaz oculta el asistente.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       IA_HABILITADA: ${IA_HABILITADA:-True}
+      # «Evaluar con plantilla» (Excel). False la oculta sin afectar al resto.
+      PLANTILLA_HABILITADA: ${PLANTILLA_HABILITADA:-True}
+      # Proveedor del asistente: anthropic | openai | groq
+      IA_PROVEEDOR: ${IA_PROVEEDOR:-anthropic}
+      IA_MODELO_GROQ: ${IA_MODELO_GROQ:-openai/gpt-oss-120b}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODELO: ${OPENAI_MODELO:-gpt-5-mini}
       # Importancia de la literatura. La clave de OpenAlex/Crossref es solo un correo.
       LIT_OPENALEX_MAILTO: ${LIT_OPENALEX_MAILTO:-}
       OPENALEX_API_KEY: ${OPENALEX_API_KEY:-}
