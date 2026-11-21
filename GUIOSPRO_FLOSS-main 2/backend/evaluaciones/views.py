@@ -3,8 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from . import plantilla
 from .models import Evaluacion, EvaluacionFactor, EvaluacionSubfactor, CAMPOS_SOFTWARE
 from .serializers import EvaluacionCreateSerializer, EvaluacionListSerializer
 from factores.models import Factor, Subfactor
@@ -36,11 +39,29 @@ def _validar_factores(data):
                 f"se requiere alcance_elegido ('Interno' o 'Externo')."
             )
 
+    ids_factor = [f_data['factor_id'] for f_data in data['factores']]
+    repetidos_f = sorted({i for i in ids_factor if ids_factor.count(i) > 1})
+    if repetidos_f:
+        errores.append(f'Los factores con id {repetidos_f} aparecen más de una vez.')
+
     respuestas = [r for f_data in data['factores'] for r in f_data.get('subfactores', [])]
     subfactores_db = Subfactor.objects.in_bulk([r['subfactor_id'] for r in respuestas])
     faltan = sorted({r['subfactor_id'] for r in respuestas if r['subfactor_id'] not in subfactores_db})
     if faltan:
         errores.append(f'Los subfactores con id {faltan} no existen.')
+    # Antes, una respuesta repetida llegaba a la base de datos y provocaba un
+    # error 500 por la restricción de unicidad; ahora se explica como un 400.
+    ids_sub = [r['subfactor_id'] for r in respuestas]
+    repetidos = sorted({i for i in ids_sub if ids_sub.count(i) > 1})
+    if repetidos:
+        errores.append(f'Los subfactores con id {repetidos} tienen más de una respuesta.')
+    ajenos = sorted({
+        r['subfactor_id'] for f_data in data['factores'] for r in f_data.get('subfactores', [])
+        if r['subfactor_id'] in subfactores_db
+        and subfactores_db[r['subfactor_id']].factor_id != f_data['factor_id']
+    })
+    if ajenos:
+        errores.append(f'Los subfactores con id {ajenos} no pertenecen al factor en el que se enviaron.')
 
     return factores_db, subfactores_db, errores
 
@@ -78,14 +99,19 @@ def _escribir_respuestas(evaluacion, data, factores_db, subfactores_db):
 
 
 def _validar_peticion(request):
+    return _validar_datos(request.data)
+
+
+def _validar_datos(datos):
     """
     Valida el cuerpo de una creación o edición y devuelve
     (datos, factores_por_id, subfactores_por_id).
 
     Los errores se lanzan como ValidationError: DRF los convierte en un 400 con el
-    mismo cuerpo que antes devolvían las vistas a mano.
+    mismo cuerpo que antes devolvían las vistas a mano. La importación de plantillas
+    pasa por aquí igual que el asistente.
     """
-    serializer = EvaluacionCreateSerializer(data=request.data)
+    serializer = EvaluacionCreateSerializer(data=datos)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
@@ -118,19 +144,124 @@ class EvaluacionListCreateView(APIView):
         return Response(data)
 
     def post(self, request):
-        data, factores_db, subfactores_db = _validar_peticion(request)
-
-        # Todo o nada: si algo falla a mitad del guardado no queda una evaluación
-        # incompleta en la base de datos.
-        with transaction.atomic():
-            evaluacion = Evaluacion.objects.create(
-                nombre=data['nombre'],
-                **{c: data.get(c, '') for c in CAMPOS_SOFTWARE},
-            )
-            _escribir_respuestas(evaluacion, data, factores_db, subfactores_db)
-
+        evaluacion = _crear(*_validar_peticion(request))
         return Response(
             {"id": evaluacion.id, "resultado": calcular_resultado_evaluacion(evaluacion)},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+def _crear(data, factores_db, subfactores_db):
+    # Todo o nada: si algo falla a mitad del guardado no queda una evaluación
+    # incompleta en la base de datos.
+    with transaction.atomic():
+        evaluacion = Evaluacion.objects.create(
+            nombre=data['nombre'],
+            **{c: data.get(c, '') for c in CAMPOS_SOFTWARE},
+        )
+        _escribir_respuestas(evaluacion, data, factores_db, subfactores_db)
+    return evaluacion
+
+
+def _plantilla_habilitada():
+    from django.conf import settings
+    return getattr(settings, 'PLANTILLA_HABILITADA', True)
+
+
+def _sin_plantilla():
+    return Response({"detail": "La evaluación con plantilla está desactivada en esta instalación."},
+                    status=status.HTTP_404_NOT_FOUND)
+
+
+class FuncionesView(APIView):
+    """Funciones opcionales activas en esta instalación, para que la interfaz las muestre u oculte."""
+
+    def get(self, request):
+        return Response({"plantilla": _plantilla_habilitada()})
+
+
+class PlantillaView(APIView):
+    """
+    Descarga la plantilla Excel para evaluar sin el asistente. Se genera en cada
+    petición a partir del catálogo actual, así que siempre refleja los factores y
+    subfactores vigentes.
+    """
+
+    def get(self, request):
+        if not _plantilla_habilitada():
+            return _sin_plantilla()
+        contenido = plantilla.generar_plantilla()
+        resp = HttpResponse(
+            contenido,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        resp['Content-Disposition'] = (
+            f'attachment; filename="plantilla_guiosad_{plantilla.version_catalogo()}.xlsx"'
+        )
+        # El catálogo puede cambiar (al aplicar una corrida de literatura): nunca
+        # se sirve una plantilla guardada en caché.
+        resp['Cache-Control'] = 'no-store'
+        return resp
+
+
+class CatalogoEstadoView(APIView):
+    """
+    Con qué catálogo se calcula hoy: versión (la misma huella que lleva la
+    plantilla), origen de la importancia sugerida (Tabla 5.3 o una corrida de
+    literatura aplicada) y la IS vigente de cada factor. Todas las evaluaciones,
+    también las anteriores, se calculan con esta IS al mostrarse.
+    """
+
+    def get(self, request):
+        from literatura.models import Corrida
+
+        factores = plantilla._catalogo()
+        corrida = Corrida.objects.filter(activada=True).order_by('-id').first()
+        return Response({
+            'version': plantilla.version_catalogo(factores),
+            'origen': 'literatura' if corrida else 'tesis',
+            'corrida': (
+                {'id': corrida.id, 'nombre': corrida.nombre,
+                 'rango': corrida.rango}
+                if corrida else None
+            ),
+            'factores': [
+                {'id': f.id, 'nombre': f.nombre, 'dimension': f.dimension.nombre,
+                 'importancia_sugerida': f.importancia_sugerida}
+                for f in factores
+            ],
+        })
+
+
+class ImportarPlantillaView(APIView):
+    """
+    Recibe la plantilla llena, crea la evaluación y devuelve su resultado.
+
+    El archivo solo se traduce a la misma evaluación que construye el asistente; el
+    cálculo es el del motor (services), de modo que cualquier cambio en las fórmulas
+    se refleja aquí sin tocar esta vista.
+    """
+    parser_classes = [MultiPartParser]
+    TAMANO_MAXIMO = 5 * 1024 * 1024
+
+    def post(self, request):
+        if not _plantilla_habilitada():
+            return _sin_plantilla()
+        archivo = request.FILES.get('archivo')
+        if archivo is None:
+            raise ValidationError({'archivo': ['Adjunte la plantilla en el campo «archivo».']})
+        if not archivo.name.lower().endswith('.xlsx'):
+            raise ValidationError({'archivo': ['La plantilla debe ser un archivo .xlsx.']})
+        if archivo.size > self.TAMANO_MAXIMO:
+            raise ValidationError({'archivo': ['El archivo supera los 5 MB.']})
+        try:
+            datos, resumen = plantilla.leer_plantilla(archivo)
+        except plantilla.PlantillaInvalida as e:
+            raise ValidationError({'archivo': e.errores})
+
+        evaluacion = _crear(*_validar_datos(datos))
+        return Response(
+            {"id": evaluacion.id, "resultado": calcular_resultado_evaluacion(evaluacion), "resumen": resumen},
             status=status.HTTP_201_CREATED,
         )
 
@@ -242,7 +373,14 @@ class EvaluacionDetailView(APIView):
             evaluacion.nombre = data['nombre']
             for c in CAMPOS_SOFTWARE:
                 setattr(evaluacion, c, data.get(c, ''))
-            evaluacion.save(update_fields=['nombre', *CAMPOS_SOFTWARE])
+            # Las respuestas cambian: los textos del asistente ya no corresponden.
+            evaluacion.informe_ia = evaluacion.informe_firma = evaluacion.informe_modelo = ''
+            evaluacion.informe_fecha = None
+            evaluacion.plan_ia = evaluacion.plan_firma = ''
+            evaluacion.save(update_fields=[
+                'nombre', *CAMPOS_SOFTWARE, 'informe_ia', 'informe_firma', 'informe_modelo',
+                'informe_fecha', 'plan_ia', 'plan_firma',
+            ])
             _escribir_respuestas(evaluacion, data, factores_db, subfactores_db)
 
         return Response({
@@ -298,31 +436,82 @@ class PlanMinimoView(APIView):
     def post(self, request, pk):
         evaluacion = get_object_or_404(Evaluacion, pk=pk)
         plan = plan_minimo(evaluacion)
+        if not plan.get("bloqueantes"):
+            return Response({**plan, "narracion": None})
+        firma = _firma({"software": evaluacion.datos_software(), "plan": plan})
+        # Si ya se redactó para este mismo plan, se reutiliza: no se vuelve a
+        # llamar al modelo cada vez que se abre la evaluación.
+        if evaluacion.plan_ia and evaluacion.plan_firma == firma:
+            return Response({**plan, "narracion": evaluacion.plan_ia})
         try:
-            plan = {**plan, "narracion": ia.redactar_plan(evaluacion.datos_software(), plan)}
+            texto = ia.redactar_plan(evaluacion.datos_software(), plan)
         except ia.IANoDisponible as e:
             # El plan determinista se entrega igualmente: el asistente es opcional.
-            plan = {**plan, "narracion": None, "narracion_error": str(e)}
-        return Response(plan)
+            return Response({**plan, "narracion": None, "narracion_error": str(e)})
+        evaluacion.plan_ia, evaluacion.plan_firma = texto, firma
+        evaluacion.save(update_fields=['plan_ia', 'plan_firma'])
+        return Response({**plan, "narracion": texto})
+
+
+def _firma(datos) -> str:
+    """Huella estable de un resultado: cambia si cambia cualquier cosa que lo determine."""
+    import hashlib
+    import json
+    return hashlib.sha1(json.dumps(datos, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _firma_informe(evaluacion, resultado) -> str:
+    return _firma({
+        "software": evaluacion.datos_software(),
+        "recomendacion": resultado.get("recomendacion", {}).get("codigo"),
+        "factores": [
+            (f.get("factor_id") or f.get("factor_nombre"), f.get("foda_categoria"), f.get("ponderacion_global"))
+            for f in resultado.get("factores", [])
+        ],
+    })
 
 
 class InformeEjecutivoView(APIView):
     """
-    RF-18 · Redacta en prosa el resultado ya calculado.
+    RF-18 · Informe ejecutivo redactado por el asistente.
 
-    Es POST porque invoca al proveedor del modelo; no modifica la evaluacion.
+    GET  devuelve el informe guardado (si existe) y si sigue vigente.
+    POST lo redacta solo si no hay uno vigente; con {"forzar": true} lo
+         vuelve a redactar. El texto se guarda en la evaluación, de modo que se
+         mantiene igual mientras la evaluación no cambie.
     """
 
+    def _respuesta(self, evaluacion, vigente):
+        return Response({
+            "id": evaluacion.id,
+            "informe": evaluacion.informe_ia or None,
+            "modelo": evaluacion.informe_modelo,
+            "fecha": evaluacion.informe_fecha,
+            "vigente": vigente,
+        })
+
+    def get(self, request, pk):
+        evaluacion = get_object_or_404(Evaluacion, pk=pk)
+        firma = _firma_informe(evaluacion, calcular_resultado_evaluacion(evaluacion))
+        return self._respuesta(evaluacion, bool(evaluacion.informe_ia) and evaluacion.informe_firma == firma)
+
     def post(self, request, pk):
+        from django.utils import timezone
+
         evaluacion = get_object_or_404(Evaluacion, pk=pk)
         resultado = calcular_resultado_evaluacion(evaluacion)
+        firma = _firma_informe(evaluacion, resultado)
+        forzar = bool(request.data.get("forzar")) if hasattr(request, "data") else False
+        if evaluacion.informe_ia and evaluacion.informe_firma == firma and not forzar:
+            return self._respuesta(evaluacion, True)
         try:
             texto = ia.redactar_informe(evaluacion.datos_software(), resultado)
         except ia.IANoDisponible as e:
             return Response({"detail": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        return Response({
-            "id": evaluacion.id,
-            "modelo": ia.MODELO,
-            "informe": texto,
-        })
+        evaluacion.informe_ia = texto
+        evaluacion.informe_modelo = ia.estado().get("modelo", "")
+        evaluacion.informe_firma = firma
+        evaluacion.informe_fecha = timezone.now()
+        evaluacion.save(update_fields=['informe_ia', 'informe_modelo', 'informe_firma', 'informe_fecha'])
+        return self._respuesta(evaluacion, True)

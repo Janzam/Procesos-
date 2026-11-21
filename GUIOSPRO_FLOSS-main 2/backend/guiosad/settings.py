@@ -91,6 +91,15 @@ CORS_ALLOW_ALL_ORIGINS = True
 # oculta el asistente (RNF-13). Nunca participa en el calculo.
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
 IA_HABILITADA = config('IA_HABILITADA', default=True, cast=bool)
+# «Evaluar con plantilla» (Excel). Con False se ocultan la página y sus rutas;
+# el resto del sistema no depende de ella.
+PLANTILLA_HABILITADA = config('PLANTILLA_HABILITADA', default=True, cast=bool)
+# Proveedor del asistente: anthropic | openai | groq (gratis; usa GROQ_API_KEYS)
+IA_PROVEEDOR = config('IA_PROVEEDOR', default='anthropic')
+IA_MODELO_GROQ = config('IA_MODELO_GROQ', default='openai/gpt-oss-120b')
+# OpenAI (ChatGPT). Clave en https://platform.openai.com/api-keys
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+OPENAI_MODELO = config('OPENAI_MODELO', default='gpt-5-mini')
 
 # ── Importancia de la literatura (innovación CP2) ──
 # La IA solo clasifica artículos: el conteo y las fórmulas 5.1/5.2 y la Figura
@@ -118,6 +127,7 @@ LIT_MODELO = config('LIT_MODELO', default='')
 _MODELOS_POR_DEFECTO = {
     'anthropic': 'claude-opus-5-5',
     'groq': 'openai/gpt-oss-120b',
+    'openai': OPENAI_MODELO,
     'demo': 'demo-determinista',
 }
 if not LIT_MODELO:

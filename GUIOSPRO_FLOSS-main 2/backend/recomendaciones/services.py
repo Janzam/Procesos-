@@ -26,10 +26,24 @@ ALCANCES_VALIDOS = ("Interno", "Externo")
 # para que el backend clasifique igual que lo que el decisor vio en pantalla.
 ALCANCE_POR_DEFECTO = "Interno"
 
+# Escala de cumplimiento de los subfactores: la posición + 1 es el valor (1-4).
+# La usan la plantilla descargable y su importación; el asistente muestra las
+# mismas etiquetas.
+ESCALA_CUMPLIMIENTO = ["No cumple el requisito", "Desconozco si cumple",
+                       "Cumple parcialmente", "Cumple el requisito"]
+
 # Segundo nivel de la escala de cumplimiento. La metodología lo promedia como un
 # valor más; aquí solo se cuenta aparte para INFORMAR de cuánto se desconoce, nunca
 # para alterar el cálculo.
 VALOR_DESCONOZCO = 2
+
+# Valor de un subfactor sin responder de un factor que sí entra en el cálculo. Es
+# la regla del asistente («sin responder se cuenta como No cumple»): la importación
+# de plantillas la aplica igual para que ambos caminos den el mismo resultado.
+VALOR_SIN_RESPUESTA = 1
+
+# Importancia del decisor cuando no la indicó: la mínima, igual que el asistente.
+IMPORTANCIA_POR_DEFECTO = 1
 
 # Umbral de la Ecuación 5.3: a partir de 3,0 el factor es favorable.
 UMBRAL = 3.0

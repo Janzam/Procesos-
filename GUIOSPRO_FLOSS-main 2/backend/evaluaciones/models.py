@@ -23,6 +23,18 @@ class Evaluacion(models.Model):
     organizacion = models.CharField(max_length=200, blank=True, default='')
     evaluador = models.CharField(max_length=200, blank=True, default='')
 
+    # Textos redactados por el asistente (RF-18 informe, RF-24 plan). Se guardan
+    # para no volver a pedirlos cada vez que se abre la evaluación. La firma es
+    # una huella del resultado con el que se redactaron: si la evaluación se
+    # edita (o el catálogo cambia y el resultado con él) la firma ya no coincide
+    # y el texto se marca como desactualizado.
+    informe_ia = models.TextField(blank=True, default='')
+    informe_modelo = models.CharField(max_length=100, blank=True, default='')
+    informe_firma = models.CharField(max_length=40, blank=True, default='')
+    informe_fecha = models.DateTimeField(null=True, blank=True)
+    plan_ia = models.TextField(blank=True, default='')
+    plan_firma = models.CharField(max_length=40, blank=True, default='')
+
     def __str__(self):
         return f"{self.nombre} ({self.creado_en:%Y-%m-%d})"
 
