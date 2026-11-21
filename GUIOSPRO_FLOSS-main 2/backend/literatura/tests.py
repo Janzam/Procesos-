@@ -48,7 +48,7 @@ class ProveedorIATest(SimpleTestCase):
         clasificador._GROQ_USO.clear()
         clasificador._GROQ_AGOTADAS.clear()
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador.requests.post")
     def test_groq_usa_clave_modelo_y_temperatura_cero(self, post):
         post.return_value.ok = True
@@ -68,7 +68,7 @@ class ProveedorIATest(SimpleTestCase):
         self.assertEqual(peticion["json"]["max_tokens"], 2000)
         self.assertTrue(clasificador.clave_configurada())
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="modelo-antiguo", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="modelo-antiguo", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador.requests.post")
     def test_groq_cambia_de_modelo_si_el_actual_no_existe(self, post):
         no_existe = Mock(ok=False, status_code=404,
@@ -86,7 +86,7 @@ class ProveedorIATest(SimpleTestCase):
         self.assertEqual(modelo, "openai/gpt-oss-120b")
         self.assertEqual(post.call_count, 2)
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="", GROQ_API_KEY="clave-groq",
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="",
                        LIT_GROQ_REINTENTOS=3)
     @patch("literatura.clasificador.time.sleep")
     @patch("literatura.clasificador._esperar_ventana_groq")
@@ -262,7 +262,7 @@ class TrazabilidadIATest(TestCase):
         return articulo, corrida
 
     @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b",
-                       GROQ_API_KEY="clave-groq", LIT_REINTENTOS_PARSEO=0)
+                       GROQ_API_KEY="clave-groq", GROQ_API_KEYS="", LIT_REINTENTOS_PARSEO=0)
     @patch("literatura.clasificador._esperar_ventana_groq")
     @patch("literatura.clasificador.requests.post")
     def test_respuesta_sin_json_queda_registrada(self, post, _ventana):
@@ -285,7 +285,7 @@ class TrazabilidadIATest(TestCase):
         self.assertFalse(Clasificacion.objects.filter(articulo=articulo).exists())
 
     @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b",
-                       GROQ_API_KEY="clave-groq", LIT_REINTENTOS_PARSEO=1)
+                       GROQ_API_KEY="clave-groq", GROQ_API_KEYS="", LIT_REINTENTOS_PARSEO=1)
     @patch("literatura.clasificador._esperar_ventana_groq")
     @patch("literatura.clasificador.requests.post")
     def test_reintento_estricto_recupera_y_deja_un_registro_del_fallo(self, post, _ventana):
@@ -311,7 +311,7 @@ class TrazabilidadIATest(TestCase):
         self.assertEqual(RespuestaIABruta.objects.filter(articulo=articulo).count(), 1)
         self.assertTrue(Clasificacion.objects.filter(articulo=articulo, etapa="rel").exists())
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador._llamar_con_uso")
     def test_version_de_sub_groq_no_invalida_la_de_relevancia(self, llamar):
         llamar.side_effect = [
@@ -332,7 +332,7 @@ class TrazabilidadIATest(TestCase):
             prompts.VERSION_SUB_GROQ + "-groq-lite",
         )
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador._llamar_con_uso")
     def test_evidencia_con_clave_invalida_se_normaliza_al_id_unico(self, llamar):
         llamar.return_value = (
@@ -348,7 +348,7 @@ class TrazabilidadIATest(TestCase):
         self.assertEqual(clasificacion.subfactores, [61])
         self.assertEqual(clasificacion.evidencia, {"61": "cost saving"})
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador._llamar_con_uso")
     def test_capa_extendida_se_guarda_separadamente(self, llamar):
         llamar.return_value = (
@@ -377,7 +377,7 @@ class TrazabilidadIATest(TestCase):
             "52": "support was available",
         })
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador._llamar_con_uso")
     def test_capa_extendida_siempre_incluye_la_estricta(self, llamar):
         llamar.return_value = (
@@ -399,7 +399,7 @@ class TrazabilidadIATest(TestCase):
         self.assertEqual(salida["subfactores_extendidos"], [61])
         self.assertEqual(salida["evidencia_extendida"], {"61": "cost saving"})
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador._llamar_con_uso")
     def test_clasificar_devuelve_y_notifica_las_dos_capas(self, llamar):
         llamar.side_effect = [
@@ -422,7 +422,7 @@ class TrazabilidadIATest(TestCase):
         self.assertEqual(resultado, (True, [1], {"1": "strict"}, 0, [1, 52], {"1": "strict", "52": "extended"}))
         self.assertEqual(avisos[1][1]["subfactores_extendidos"], [1, 52])
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador._llamar_con_uso")
     def test_clasificar_notifica_relevancia_y_subfactores(self, llamar):
         llamar.side_effect = [
@@ -440,7 +440,7 @@ class TrazabilidadIATest(TestCase):
         self.assertTrue(avisos[0][1]["es_relevante"])
         self.assertEqual(avisos[1][1]["subfactores"], [1])
 
-    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq")
+    @override_settings(LIT_PROVEEDOR_IA="groq", LIT_MODELO="openai/gpt-oss-120b", GROQ_API_KEY="clave-groq", GROQ_API_KEYS="")
     @patch("literatura.clasificador._llamar_con_uso")
     def test_forzar_reanalisis_ignora_y_actualiza_cache(self, llamar):
         llamar.side_effect = [
