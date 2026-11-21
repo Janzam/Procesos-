@@ -1,7 +1,11 @@
 // origen: guiosad.py (get_suggested_importances, get_scopes) | cambio: datos ahora vienen del backend REST
 import { SOFTWARE_VACIO, softwareAPayload } from '../utils/software.js'
 
-const BASE = '/api'
+// En Docker y en desarrollo la API está en el mismo dominio (/api). Desplegado
+// en Vercel, el frontend y el backend son dos proyectos: VITE_API_URL lleva la
+// dirección del backend (p. ej. https://guiosad-api.vercel.app), sin barra final.
+const API_EXTERNA = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+const BASE = `${API_EXTERNA}/api`
 
 // Una petición a la API. Un fallo HTTP se convierte en un Error con el mensaje
 // indicado; una respuesta sin cuerpo (204) devuelve undefined.

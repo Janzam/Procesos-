@@ -1,3 +1,5 @@
+import os
+import urllib.parse
 from pathlib import Path
 
 from decouple import config
@@ -7,6 +9,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+
+# ── Despliegue en Vercel ──
+# Vercel define VERCEL=1 en sus funciones. Allí cada petición es una función
+# con tiempo limitado, así que lo que necesita un proceso largo (las corridas
+# de Literatura IA) se desactiva y se ejecuta en la instalación con Docker.
+EN_VERCEL = os.environ.get('VERCEL') == '1'
+if EN_VERCEL and '*' not in ALLOWED_HOSTS and '.vercel.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('.vercel.app')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -67,12 +77,35 @@ DATABASES = {
     }
 }
 
+# En la nube (Neon, integrado en Vercel) la base llega como una sola URL:
+# postgresql://usuario:clave@host/base?sslmode=require. Si existe, manda sobre
+# las variables DB_* de Docker.
+_DATABASE_URL = os.environ.get('DATABASE_URL', '')
+if _DATABASE_URL:
+    _url = urllib.parse.urlparse(_DATABASE_URL)
+    _opciones = dict(urllib.parse.parse_qsl(_url.query))
+    _opciones.setdefault('sslmode', 'require')
+    _opciones.pop('channel_binding', None)
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': _url.path.lstrip('/'),
+        'USER': urllib.parse.unquote(_url.username or ''),
+        'PASSWORD': urllib.parse.unquote(_url.password or ''),
+        'HOST': _url.hostname,
+        'PORT': str(_url.port or 5432),
+        'OPTIONS': _opciones,
+        # Funciones sin servidor: una conexión por petición (Neon usa pooler).
+        'CONN_MAX_AGE': 0,
+    }
+
 LANGUAGE_CODE = 'es-es'
 TIME_ZONE = 'America/Guayaquil'
 USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+# Vercel ejecuta collectstatic durante el build cuando existe STATIC_ROOT.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
@@ -135,6 +168,9 @@ if not LIT_MODELO:
 LIT_METODO_TC = config('LIT_METODO_TC', default='menciones')
 LIT_MAX_PAGINAS = config('LIT_MAX_PAGINAS', default=10, cast=int)
 LIT_MAX_ARTICULOS = config('LIT_MAX_ARTICULOS', default=0, cast=int)
+# Las corridas nuevas necesitan un proceso que dure minutos: en Vercel no se
+# lanzan (se ven, comparan y aplican las ya hechas). Se puede forzar con la variable.
+LIT_CORRIDAS_HABILITADAS = config('LIT_CORRIDAS_HABILITADAS', default=not EN_VERCEL, cast=bool)
 LIT_REINTENTOS_PARSEO = config('LIT_REINTENTOS_PARSEO', default=1, cast=int)
 
 LOGGING = {

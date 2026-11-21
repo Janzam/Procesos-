@@ -259,6 +259,8 @@ export default function LiteraturaPage({ onNavigate }) {
   const proveedorNombre = PROVEEDOR_NOMBRE[config?.proveedor_ia] || config?.proveedor_ia || '—'
   const errores = validarForm(form, config?.anio_actual || new Date().getFullYear())
   const hayErrores = Object.keys(errores).length > 0
+  // En la nube (Vercel) no se lanzan corridas nuevas: se ven y aplican las hechas.
+  const sinCorridas = config?.corridas_habilitadas === false
   const anioMax = config?.anio_actual || new Date().getFullYear()
 
   return (
@@ -288,6 +290,10 @@ export default function LiteraturaPage({ onNavigate }) {
         <div className="lit-aviso">
           <IcoAlerta /> Falta la clave de {proveedorNombre} en el entorno.
         </div>
+      )}
+
+      {sinCorridas && config?.aviso_corridas && (
+        <div className="lit-aviso"><IcoAlerta /> {config.aviso_corridas}</div>
       )}
 
       {error && <div className="lit-error">{error}</div>}
@@ -362,11 +368,11 @@ export default function LiteraturaPage({ onNavigate }) {
           {errores.fuentes && <em className="lit-error-campo lit-error-fuentes">{errores.fuentes}</em>}
 
           <div className="lit-acciones-inicio">
-            <button className="lit-boton-principal" disabled={ocupado || hayErrores}
+            <button className="lit-boton-principal" disabled={ocupado || hayErrores || sinCorridas}
                     onClick={() => iniciar(false)}>
               <IcoBuscar /> Iniciar análisis
             </button>
-            <button className="lit-boton-forzar" disabled={ocupado || hayErrores}
+            <button className="lit-boton-forzar" disabled={ocupado || hayErrores || sinCorridas}
                     onClick={() => iniciar(true)}>
               Reanalizar todo (sin caché)
             </button>
@@ -406,7 +412,7 @@ export default function LiteraturaPage({ onNavigate }) {
               {activa.estado === 'pausada' && (
                 <div className="lit-pausa">
                   <span>{activa.mensaje}</span>
-                  <button disabled={ocupado} onClick={reanudar}>Reanudar corrida</button>
+                  <button disabled={ocupado || sinCorridas} onClick={reanudar}>Reanudar corrida</button>
                 </div>
               )}
               {(analizando || clasificacionesVivas.length > 0) && (

@@ -56,3 +56,6 @@ documentacion/
 # ─── Entregables locales (no se versionan) ───────────
 entrega/
 *.dump
+
+# Archivos estáticos que genera collectstatic (Vercel los crea en el build)
+staticfiles/

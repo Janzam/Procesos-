@@ -12,9 +12,22 @@ from .models import Corrida
 from .serializers import CorridaResumenSerializer, CorridaSerializer, EventoProgresoSerializer
 
 
+SIN_CORRIDAS = (
+    "Las corridas nuevas no se pueden ejecutar en esta instalación (en la nube cada petición "
+    "tiene un tiempo limitado). Lánzalas en la instalación con Docker; aquí se pueden ver, "
+    "comparar y aplicar las corridas ya hechas."
+)
+
+
+def _corridas_habilitadas():
+    return getattr(settings, "LIT_CORRIDAS_HABILITADAS", True)
+
+
 class ConfigView(APIView):
     def get(self, request):
         return Response({
+            "corridas_habilitadas": _corridas_habilitadas(),
+            "aviso_corridas": "" if _corridas_habilitadas() else SIN_CORRIDAS,
             "anio_actual": timezone.now().year,
             "anios_sugeridos": [[2008, 2019], [2020, 2025]],
             "fuentes": fuentes.FUENTES_DISPONIBLES,
@@ -43,6 +56,8 @@ class CorridaListaView(APIView):
         return Response(CorridaResumenSerializer(corridas, many=True).data)
 
     def post(self, request):
+        if not _corridas_habilitadas():
+            return Response({"detail": SIN_CORRIDAS}, status=status.HTTP_400_BAD_REQUEST)
         datos = request.data or {}
         try:
             inicio = int(datos.get("anio_inicio", 2020))
@@ -120,6 +135,8 @@ class CorridaDetalleView(APIView):
 
 class ReanudarView(APIView):
     def post(self, request, pk):
+        if not _corridas_habilitadas():
+            return Response({"detail": SIN_CORRIDAS}, status=status.HTTP_400_BAD_REQUEST)
         corrida = Corrida.objects.filter(pk=pk).first()
         if not corrida:
             return Response({"detail": "Corrida no encontrada"}, status=status.HTTP_404_NOT_FOUND)
