@@ -4,11 +4,42 @@ import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Tooltip,
 const DIMENSIONES = ['Tecnológica', 'Organizacional', 'Económica']
 
 export default function RadarDimensiones({ factores }) {
+  // Solo las dimensiones con factores ponderados: una dimensión que quedó fuera del
+  // cálculo (por ejemplo, vacía en una plantilla importada) no se dibuja en 0, que
+  // se leería como la peor nota cuando en realidad no se evaluó.
   const data = DIMENSIONES.map(dim => {
     const df = factores.filter(f => f.dimension === dim && f.ponderacion_global !== null)
-    const avg = df.length ? df.reduce((s, f) => s + f.ponderacion_global, 0) / df.length : 0
+    if (!df.length) return null
+    const avg = df.reduce((s, f) => s + f.ponderacion_global, 0) / df.length
     return { dimension: dim, ponderacion: parseFloat(avg.toFixed(2)) }
-  })
+  }).filter(Boolean)
+
+  // Un radar necesita al menos tres ejes: con menos se dibuja como una línea. En
+  // ese caso se muestran barras con la misma información.
+  if (data.length < 3) {
+    const fuera = DIMENSIONES.filter(d => !data.some(x => x.dimension === d))
+    return (
+      <div className="card" style={{ padding: '14px 16px' }}>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: 'var(--text-primary)' }}>Ponderación por dimensión</div>
+        {data.map(d => (
+          <div key={d.dimension} style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{d.dimension}</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{d.ponderacion} / 4</span>
+            </div>
+            <div style={{ height: 10, borderRadius: 6, background: 'var(--track)' }}>
+              <div style={{ width: `${(d.ponderacion / 4) * 100}%`, height: '100%', borderRadius: 6, background: 'var(--brand)' }} />
+            </div>
+          </div>
+        ))}
+        {fuera.length > 0 && (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+            Sin datos en esta evaluación: {fuera.join(', ')}. El radar se muestra cuando hay al menos tres dimensiones evaluadas.
+          </p>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="card" style={{ padding: '14px 16px' }}>

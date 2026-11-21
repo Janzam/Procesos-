@@ -3,12 +3,47 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   getConfigLiteratura, getCorridas, crearCorrida, getCorrida,
-  getProgreso, reanudarCorrida, activarCorrida, getComparacion, eliminarCorrida,
+  getProgreso, reanudarCorrida, eliminarCorrida,
 } from '../api/guiosad.js'
-import { IcoChispa, IcoAlerta, IcoCheck, IcoMedidor, IcoFlecha, IcoReloj, IcoBorrar } from '../components/Iconos.jsx'
+import {
+  IcoBuscar, IcoAlerta, IcoCheck, IcoMedidor, IcoReloj, IcoBorrar, IcoCapas, IcoResultados,
+  IcoChevron, IcoTabla,
+} from '../components/Iconos.jsx'
+import { recordarCorrida, CORRIDA_KEY } from './LiteraturaTablaPage.jsx'
 
-const NIVEL = { 1: 'Irrelevante', 2: 'Opcional', 3: 'Importante', 4: 'Fundamental' }
-const DIMENSION_CLASE = { Tecnológica: 'tec', Organizacional: 'org', Económica: 'eco' }
+const HISTORIAL_KEY = 'guiosad-lit-historial'
+
+// Validación del formulario de corrida. Las mismas reglas las aplica el
+// backend; aquí se avisan antes, junto a cada campo.
+function validarForm(form, anioActual) {
+  const errores = {}
+  const entero = v => String(v).trim() !== '' && Number.isInteger(Number(v))
+  if (!String(form.nombre || '').trim()) errores.nombre = 'Escriba un nombre para la corrida.'
+  else if (form.nombre.trim().length > 120) errores.nombre = 'Máximo 120 caracteres.'
+  if (!entero(form.anio_inicio)) errores.anio_inicio = 'Año no válido.'
+  else if (form.anio_inicio < 1990 || form.anio_inicio > anioActual) errores.anio_inicio = `Entre 1990 y ${anioActual}.`
+  if (!entero(form.anio_fin)) errores.anio_fin = 'Año no válido.'
+  else if (form.anio_fin < 1990 || form.anio_fin > anioActual) errores.anio_fin = `Entre 1990 y ${anioActual}.`
+  if (!errores.anio_inicio && !errores.anio_fin && Number(form.anio_inicio) > Number(form.anio_fin)) {
+    errores.anio_fin = '«Hasta» no puede ser menor que «Desde».'
+  }
+  if (!entero(form.max_articulos) || form.max_articulos < 0 || form.max_articulos > 10000) {
+    errores.max_articulos = 'Número entero entre 0 y 10000.'
+  }
+  if (!form.fuentes.length) errores.fuentes = 'Elija al menos una base de datos.'
+  return errores
+}
+const PRESETS = [
+  { inicio: 2008, fin: 2019, titulo: 'Tesis', detalle: '2008 – 2019' },
+  { inicio: 2020, fin: 2025, titulo: 'Innovación', detalle: '2020 – 2025' },
+]
+const FUENTES = {
+  openalex: { nombre: 'OpenAlex', detalle: 'Gratuita' },
+  crossref: { nombre: 'Crossref', detalle: 'DOI' },
+  scopus:   { nombre: 'Scopus',   detalle: 'Institucional' },
+}
+const ESTADO_TONO = { listo: 'verde', error: 'rojo', ejecutando: 'azul', pendiente: 'azul', pausada: 'ambar' }
+const PROVEEDOR_NOMBRE = { groq: 'Groq', openai: 'OpenAI', anthropic: 'Anthropic', demo: 'Demo' }
 
 function cortar(texto, max) {
   if (!texto) return ''
@@ -26,15 +61,18 @@ function initForm(config) {
   }
 }
 
-export default function LiteraturaPage() {
+export default function LiteraturaPage({ onNavigate }) {
   const [config, setConfig] = useState(null)
   const [form, setForm] = useState(initForm(null))
   const [corridas, setCorridas] = useState([])
   const [activa, setActiva] = useState(null)
   const [detalle, setDetalle] = useState(null)
   const [eventos, setEventos] = useState([])
-  const [comparacion, setComparacion] = useState(null)
-  const [abierto, setAbierto] = useState(null)
+  // Corridas anteriores plegables; se recuerda si estaban abiertas.
+  const [verHistorial, setVerHistorial] = useState(() => {
+    try { return localStorage.getItem(HISTORIAL_KEY) !== 'oculto' } catch { return true }
+  })
+  const [verTodas, setVerTodas] = useState(false)
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [borrando, setBorrando] = useState(null)
@@ -47,8 +85,16 @@ export default function LiteraturaPage() {
       setForm(initForm(c))
     }).catch(e => setError(e.message))
     getCorridas().then(setCorridas).catch(() => setCorridas([]))
+    // Al volver al apartado se reabre la última corrida consultada.
+    let recordada = null
+    try { recordada = Number(localStorage.getItem(CORRIDA_KEY)) || null } catch { /* modo privado */ }
+    if (recordada) verCorrida(recordada, true)
     return () => clearInterval(timer.current)
   }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem(HISTORIAL_KEY, verHistorial ? 'visible' : 'oculto') } catch { /* modo privado */ }
+  }, [verHistorial])
 
   useEffect(() => {
     if (!activa || ['listo', 'error'].includes(activa.estado)) return undefined
@@ -64,6 +110,7 @@ export default function LiteraturaPage() {
           clearInterval(timer.current)
           const completo = await getCorrida(activa.id)
           setDetalle(completo)
+          recordarCorrida(completo.id)
           setActiva(prev => ({ ...prev, ...completo }))
           setCorridas(prev => [completo, ...prev.filter(c => c.id !== completo.id)])
         }
@@ -97,11 +144,10 @@ export default function LiteraturaPage() {
     setError('')
     setOcupado(true)
     setEventos([])
-    setComparacion(null)
     setDetalle(null)
     ultimoEvento.current = 0
     try {
-      const corrida = await crearCorrida({ ...form, forzar_reanalisis: forzar })
+      const corrida = await crearCorrida({ ...form, nombre: form.nombre.trim(), forzar_reanalisis: forzar })
       setActiva(corrida)
       setCorridas(prev => [corrida, ...prev])
     } catch (e) {
@@ -111,16 +157,16 @@ export default function LiteraturaPage() {
     }
   }
 
-  async function verCorrida(id) {
+  async function verCorrida(id, silencioso = false) {
     setError('')
     try {
       const completo = await getCorrida(id)
       setActiva(completo)
       setDetalle(completo)
-      setComparacion(null)
       setEventos([])
+      recordarCorrida(id)
     } catch (e) {
-      setError(e.message)
+      if (!silencioso) setError(e.message)
     }
   }
 
@@ -135,35 +181,6 @@ export default function LiteraturaPage() {
       setError(e.message)
     } finally {
       setOcupado(false)
-    }
-  }
-
-  async function cambiarActivacion(accion) {
-    if (!detalle) return
-    setOcupado(true)
-    setError('')
-    try {
-      const actualizado = await activarCorrida(detalle.id, accion)
-      setDetalle(actualizado)
-      setActiva(actualizado)
-      setCorridas(prev => prev.map(c => {
-        if (c.id === actualizado.id) return actualizado
-        if (actualizado.activada && c.activada) return { ...c, activada: false }
-        return c
-      }))
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setOcupado(false)
-    }
-  }
-
-  async function verComparacion() {
-    if (!detalle) return
-    try {
-      setComparacion(await getComparacion(detalle.id))
-    } catch (e) {
-      setError(e.message)
     }
   }
 
@@ -185,11 +202,7 @@ export default function LiteraturaPage() {
       setCorridas(prev => prev
         .filter(c => c.id !== corrida.id)
         .map(c => corrida.activada && c.activada ? { ...c, activada: false } : c))
-      if (detalle?.id === corrida.id) {
-        setDetalle(null)
-        setComparacion(null)
-        setAbierto(null)
-      }
+      if (detalle?.id === corrida.id) setDetalle(null)
       if (activa?.id === corrida.id) {
         clearInterval(timer.current)
         setActiva(null)
@@ -241,95 +254,141 @@ export default function LiteraturaPage() {
     return { ...evento, desdeCache: Boolean(tarjeta?.desdeCache) }
   }, [eventos, clasificacionesVivas])
 
+  const corridasListas = corridas.filter(c => c.estado === 'listo').length
+  const corridaAplicada = corridas.find(c => c.activada)
+  const proveedorNombre = PROVEEDOR_NOMBRE[config?.proveedor_ia] || config?.proveedor_ia || '—'
+  const errores = validarForm(form, config?.anio_actual || new Date().getFullYear())
+  const hayErrores = Object.keys(errores).length > 0
+  const anioMax = config?.anio_actual || new Date().getFullYear()
+
   return (
     <div className="lit-page">
-      <div className="lit-cabecera">
-        <div>
-          <span className="eyebrow"><IcoChispa /> Innovación · CP2</span>
+      <section className="lit-hero">
+        <div className="lit-hero-texto">
+          <span className="lit-hero-etiqueta">Innovación · CP2</span>
           <h1>Importancia de la literatura</h1>
-          <p className="subtitulo">
+          <p>
             Busca evidencia de adopción FLOSS, la clasifica con IA y calcula la importancia
             sugerida de los 18 factores con las fórmulas de la tesis.
           </p>
-        </div>
-        {config?.proveedor_ia === 'demo' && (
-          <div className="lit-aviso"><IcoAlerta /> Modo demostración: los valores no son válidos para la tesis.</div>
-        )}
-        {config && !config.ia_configurada && (
-          <div className="lit-aviso">
-            <IcoAlerta /> Falta la clave de {config.proveedor_ia === 'groq' ? 'Groq' : 'Anthropic'} en el entorno.
+          <div className="lit-hero-cifras">
+            <div><b>{corridas.length}</b><span>corridas</span></div>
+            <div><b>{corridasListas}</b><span>completadas</span></div>
+            <div><b>{corridaAplicada ? `#${corridaAplicada.id}` : '—'}</b><span>aplicada al catálogo</span></div>
+            <div><b>{proveedorNombre}</b><span>clasificador IA</span></div>
           </div>
-        )}
-      </div>
+        </div>
+        <div className="lit-hero-lupa" aria-hidden="true"><IcoBuscar /></div>
+      </section>
+
+      {config?.proveedor_ia === 'demo' && (
+        <div className="lit-aviso"><IcoAlerta /> Modo demostración: los valores no son válidos para la tesis.</div>
+      )}
+      {config && !config.ia_configurada && (
+        <div className="lit-aviso">
+          <IcoAlerta /> Falta la clave de {proveedorNombre} en el entorno.
+        </div>
+      )}
 
       {error && <div className="lit-error">{error}</div>}
 
       <div className="lit-rejilla">
         <section className="lit-panel">
-          <h2><IcoMedidor /> Nueva corrida</h2>
-          <div className="lit-presets">
-            <button type="button" onClick={() => cambiarPreseto(2008, 2019)}>Tesis 2008–2019</button>
-            <button type="button" onClick={() => cambiarPreseto(2020, 2025)}>Innovación 2020–2025</button>
-          </div>
-
-          <label className="lit-campo">
-            <span>Nombre</span>
-            <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} />
-          </label>
-          <div className="lit-dos-columnas">
-            <label className="lit-campo">
-              <span>Desde</span>
-              <input type="number" min="1990" max="2030" value={form.anio_inicio}
-                     onChange={e => setForm({ ...form, anio_inicio: Number(e.target.value) })} />
-            </label>
-            <label className="lit-campo">
-              <span>Hasta</span>
-              <input type="number" min="1990" max="2030" value={form.anio_fin}
-                     onChange={e => setForm({ ...form, anio_fin: Number(e.target.value) })} />
-            </label>
-          </div>
-
-          <label className="lit-campo">
-            <span>Máx. artículos (0 = todos)</span>
-            <input type="number" min="0" max="10000" value={form.max_articulos}
-                   onChange={e => setForm({ ...form, max_articulos: Number(e.target.value) })} />
-            <small>Para probar métricas rápido, pon por ejemplo 20.</small>
-          </label>
-
-          <fieldset className="lit-fuentes">
-            <legend>Bases de datos</legend>
-            {(config?.fuentes || ['openalex']).map(id => {
-              const listo = config?.fuentes_configuradas?.[id]
+          <h2><span className="lit-h2-icono lit-tono-naranja"><IcoMedidor /></span> Nueva corrida</h2>
+          <div className="lit-presets" role="group" aria-label="Rango predefinido">
+            {PRESETS.map(p => {
+              const activo = form.anio_inicio === p.inicio && form.anio_fin === p.fin
               return (
-                <label key={id} className={listo ? '' : 'lit-fuente-sin-clave'}>
-                  <input type="checkbox" checked={form.fuentes.includes(id)} onChange={() => alternarFuente(id)} />
-                  <span>{id}</span>
-                  {!listo && <small>sin credencial</small>}
-                </label>
+                <button key={p.titulo} type="button" className={activo ? 'activo' : ''}
+                        aria-pressed={activo} onClick={() => cambiarPreseto(p.inicio, p.fin)}>
+                  <b>{p.titulo}</b><span>{p.detalle}</span>
+                </button>
               )
             })}
-          </fieldset>
+          </div>
+
+          <label className={`lit-campo ${errores.nombre ? 'con-error' : ''}`}>
+            <span>Nombre</span>
+            <input value={form.nombre} maxLength={120} aria-invalid={Boolean(errores.nombre)}
+                   onChange={e => setForm({ ...form, nombre: e.target.value })} />
+            {errores.nombre && <em className="lit-error-campo">{errores.nombre}</em>}
+          </label>
+          <div className="lit-dos-columnas">
+            <label className={`lit-campo ${errores.anio_inicio ? 'con-error' : ''}`}>
+              <span>Desde</span>
+              <input type="number" min="1990" max={anioMax} step="1" value={form.anio_inicio}
+                     aria-invalid={Boolean(errores.anio_inicio)}
+                     onChange={e => setForm({ ...form, anio_inicio: e.target.value === '' ? '' : Number(e.target.value) })} />
+              {errores.anio_inicio && <em className="lit-error-campo">{errores.anio_inicio}</em>}
+            </label>
+            <label className={`lit-campo ${errores.anio_fin ? 'con-error' : ''}`}>
+              <span>Hasta</span>
+              <input type="number" min="1990" max={anioMax} step="1" value={form.anio_fin}
+                     aria-invalid={Boolean(errores.anio_fin)}
+                     onChange={e => setForm({ ...form, anio_fin: e.target.value === '' ? '' : Number(e.target.value) })} />
+              {errores.anio_fin && <em className="lit-error-campo">{errores.anio_fin}</em>}
+            </label>
+          </div>
+
+          <label className={`lit-campo ${errores.max_articulos ? 'con-error' : ''}`}>
+            <span>Máx. artículos (0 = todos)</span>
+            <input type="number" min="0" max="10000" step="1" value={form.max_articulos}
+                   aria-invalid={Boolean(errores.max_articulos)}
+                   onChange={e => setForm({ ...form, max_articulos: e.target.value === '' ? '' : Number(e.target.value) })} />
+            {errores.max_articulos
+              ? <em className="lit-error-campo">{errores.max_articulos}</em>
+              : <small>Para probar métricas rápido, pon por ejemplo 20.</small>}
+          </label>
+
+          <div className="lit-fuentes-cab">Bases de datos</div>
+          <div className="lit-fuentes-tarjetas">
+            {(config?.fuentes || ['openalex']).map(id => {
+              const listo = config?.fuentes_configuradas?.[id]
+              const marcada = form.fuentes.includes(id)
+              const info = FUENTES[id] || { nombre: id, detalle: '' }
+              return (
+                <button key={id} type="button" aria-pressed={marcada}
+                        className={`lit-fuente ${marcada ? 'marcada' : ''} ${listo ? '' : 'sin-clave'}`}
+                        onClick={() => alternarFuente(id)}>
+                  <span className="lit-fuente-check">{marcada && <IcoCheck />}</span>
+                  <span className="lit-fuente-texto">
+                    <b>{info.nombre}</b>
+                    <small>{listo ? info.detalle : 'sin credencial'}</small>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {errores.fuentes && <em className="lit-error-campo lit-error-fuentes">{errores.fuentes}</em>}
 
           <div className="lit-acciones-inicio">
-            <button className="lit-boton-principal" disabled={ocupado || !form.fuentes.length}
+            <button className="lit-boton-principal" disabled={ocupado || hayErrores}
                     onClick={() => iniciar(false)}>
-              <IcoChispa /> Iniciar análisis
+              <IcoBuscar /> Iniciar análisis
             </button>
-            <button className="lit-boton-forzar" disabled={ocupado || !form.fuentes.length}
+            <button className="lit-boton-forzar" disabled={ocupado || hayErrores}
                     onClick={() => iniciar(true)}>
               Reanalizar todo (sin caché)
             </button>
           </div>
           {config && (
-            <p className="lit-nota">
-              Prompt <code>{config.version_prompt}</code> · {config.proveedor_ia} / <code>{config.modelo}</code> · IE fijo <b>{config.ie_tesis}</b>
-            </p>
+            <div className="lit-meta">
+              <span title="Proveedor y modelo de IA"><IcoCapas /> {proveedorNombre} · {config.modelo}</span>
+              <span title="Versión del prompt">Prompt {config.version_prompt}</span>
+              <span title="Importancia de la experiencia (fija)">IE fijo {config.ie_tesis}</span>
+            </div>
           )}
         </section>
 
         <section className="lit-panel">
-          <h2><IcoReloj /> Progreso</h2>
-          {!activa && <p className="lit-vacio">Todavía no hay una corrida seleccionada.</p>}
+          <h2><span className="lit-h2-icono lit-tono-azul"><IcoReloj /></span> Progreso</h2>
+          {!activa && (
+            <div className="lit-vacio-estado">
+              <span className="lit-vacio-icono"><IcoResultados /></span>
+              <b>Ninguna corrida seleccionada</b>
+              <p>Inicia un análisis o abre una corrida anterior para ver su avance y resultados.</p>
+            </div>
+          )}
           {activa && (
             <>
               <div className="lit-linea-estado">
@@ -411,16 +470,28 @@ export default function LiteraturaPage() {
             </>
           )}
           {!!corridas.length && (
-            <div className="lit-historial">
-              <span>Corridas anteriores</span>
-              {corridas.slice(0, 8).map(c => {
+            <div className={`lit-historial ${verHistorial ? '' : 'plegado'}`}>
+              <button type="button" className="lit-historial-toggle" aria-expanded={verHistorial}
+                      onClick={() => setVerHistorial(v => !v)}>
+                <span>Corridas anteriores</span>
+                <span className="lit-historial-cuenta">{corridas.length}</span>
+                <span className="lit-historial-accion">{verHistorial ? 'Ocultar' : 'Mostrar'} <IcoChevron /></span>
+              </button>
+              {verHistorial && corridas.slice(0, verTodas ? corridas.length : 5).map(c => {
                 const enCurso = ['pendiente', 'ejecutando'].includes(c.estado)
                 return (
                   <div key={c.id} className={`lit-historial-fila ${detalle?.id === c.id ? 'activo' : ''}`}>
                     <button type="button" className="lit-historial-abrir" onClick={() => verCorrida(c.id)}>
-                      #{c.id} · {c.rango} · {c.estado}
-                      {c.es_reproduccion && <em> reproducible</em>}
-                      {c.activada && <em className="lit-historial-aplicada"> aplicada</em>}
+                      <span className="lit-historial-num">#{c.id}</span>
+                      <span className="lit-historial-texto">
+                        <b>{c.nombre || `Literatura ${c.rango}`}</b>
+                        <small>{c.rango}{Array.isArray(c.fuentes) && c.fuentes.length ? ` · ${c.fuentes.map(f => FUENTES[f]?.nombre || f).join(', ')}` : ''}</small>
+                      </span>
+                      <span className="lit-historial-chips">
+                        {c.es_reproduccion && <span className="chip chip-morado">reproducible</span>}
+                        {c.activada && <span className="chip chip-naranja">aplicada</span>}
+                        <span className={`chip chip-${ESTADO_TONO[c.estado] || 'azul'}`}>{c.estado}</span>
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -435,117 +506,27 @@ export default function LiteraturaPage() {
                   </div>
                 )
               })}
+              {verHistorial && corridas.length > 5 && (
+                <button type="button" className="lit-historial-mas" onClick={() => setVerTodas(v => !v)}>
+                  {verTodas ? 'Ver menos' : `Ver las ${corridas.length} corridas`}
+                </button>
+              )}
             </div>
           )}
         </section>
       </div>
 
-      {detalle && (
-        <section className="lit-panel lit-resultados">
-          <div className="lit-resultados-cab">
-            <h2>Resultados · {detalle.rango}</h2>
-            <div className="lit-acciones">
-              <button onClick={verComparacion}><IcoFlecha /> Comparar con Tabla 5.3</button>
-              <button disabled={ocupado} onClick={() => cambiarActivacion(detalle.activada ? 'desactivar' : 'activar')}>
-                <IcoCheck /> {detalle.activada ? 'Revertir catálogo' : 'Aplicar IS al catálogo'}
-              </button>
-            </div>
-          </div>
-
-          <div className="lit-metricas">
-            <div><b>{detalle.metricas?.il_exactos ?? '—'}/{detalle.metricas?.total ?? 18}</b><span>IL exactos</span></div>
-            <div><b>{detalle.metricas?.il_dentro_de_1 ?? '—'}/{detalle.metricas?.total ?? 18}</b><span>IL a ±1</span></div>
-            <div><b>{detalle.metricas?.is_iguales ?? '—'}/{detalle.metricas?.total ?? 18}</b><span>IS iguales</span></div>
-            <div><b>{detalle.metricas?.spearman != null ? detalle.metricas.spearman.toFixed(3) : '—'}</b><span>Spearman</span></div>
-          </div>
-
-          <div className="lit-tabla-wrap">
-            <table className="lit-tabla">
-              <thead>
-                <tr>
-                  <th>Factor</th><th>TC</th><th>NS</th><th>r</th><th>IL</th><th>IS</th>
-                  <th>IL*</th><th>IS*</th><th>Δ IL / IS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(detalle.resultados || []).map(r => (
-                  <FragmentoFactor key={r.id} fila={r} abierto={abierto === r.id}
-                                   onToggle={() => setAbierto(abierto === r.id ? null : r.id)} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {comparacion && (
-        <section className="lit-panel">
-          <h2>Comparación con la Tabla 5.3</h2>
-          <p className="lit-nota">
-            IL* e IS* son los valores de la tesis (2008–2019). Esta corrida usa {comparacion.rango}
-            y la definición de TC «{comparacion.metodo_tc}». Las diferencias son esperables cuando
-            cambian las fuentes, el rango o la forma de contar.
-          </p>
-          <ul className="lit-comparacion">
-            {comparacion.resultados.filter(r => r.il !== r.il_tesis || r.is !== r.is_tesis).map(r => (
-              <li key={r.factor}>
-                <b>{r.factor}</b>: IL {r.il} vs {r.il_tesis} · IS {r.is} vs {r.is_tesis}
-              </li>
-            ))}
-            {!comparacion.resultados.some(r => r.il !== r.il_tesis || r.is !== r.is_tesis) && (
-              <li>Sin diferencias respecto a la Tabla 5.3.</li>
-            )}
-          </ul>
-        </section>
+      {detalle && detalle.estado === 'listo' && (
+        <div className="lit-ir-tabla">
+          <span>
+            <b>Corrida #{detalle.id} · {detalle.nombre}</b> lista
+            {detalle.activada ? ' y aplicada al catálogo' : ''}. Sus resultados están en <b>Tabla de resultados</b>.
+          </span>
+          <button type="button" onClick={() => { recordarCorrida(detalle.id); onNavigate?.('literatura-tabla') }}>
+            <IcoTabla /> Ver tabla de resultados
+          </button>
+        </div>
       )}
     </div>
-  )
-}
-
-function FragmentoFactor({ fila, abierto, onToggle }) {
-  const clase = DIMENSION_CLASE[fila.dimension] || 'tec'
-  const diferencias = []
-  if (fila.diff_il) diferencias.push(`IL ${fila.diff_il > 0 ? '+' : ''}${fila.diff_il}`)
-  if (fila.diff_is) diferencias.push(`IS ${fila.diff_is > 0 ? '+' : ''}${fila.diff_is}`)
-  return (
-    <>
-      <tr className={`lit-fila ${abierto ? 'abierta' : ''}`} onClick={onToggle}>
-        <td>
-          <span className={`lit-punto lit-punto-${clase}`} />
-          <b>{fila.nombre}</b>
-          <small>{fila.dimension}</small>
-        </td>
-        <td>{fila.tc}</td>
-        <td>{fila.ns}</td>
-        <td>{Number(fila.r).toFixed(2)}</td>
-        <td><span className="lit-nivel">{fila.il} · {NIVEL[fila.il]}</span></td>
-        <td><b>{fila.is_calculada ?? fila.is}</b></td>
-        <td className="lit-ref">{fila.il_tesis}</td>
-        <td className="lit-ref">{fila.is_tesis}</td>
-        <td className={fila.diff_il || fila.diff_is ? 'lit-diff' : ''}>
-          {diferencias.length ? diferencias.join(' / ') : '—'}
-        </td>
-      </tr>
-      {abierto && (
-        <tr className="lit-detalle-fila">
-          <td colSpan="9">
-            <b>Artículos que sustentan este factor ({fila.articulos?.length || 0})</b>
-            {!fila.articulos?.length && <p className="lit-vacio">Sin evidencia asignada en esta corrida.</p>}
-            <ul className="lit-articulos">
-              {(fila.articulos || []).map((a, i) => (
-                <li key={`${a.id}-${i}`}>
-                  <span>{a.anio || '—'}</span>
-                  <div>
-                    <b>{a.titulo}</b>
-                    {a.evidencia && <small>«{a.evidencia}»</small>}
-                    {a.doi && <code>{a.doi}</code>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </td>
-        </tr>
-      )}
-    </>
   )
 }

@@ -16,25 +16,29 @@ export const SOFTWARE_VACIO = {
 
 // «Moodle 4.3»: nombre y versión, los que haya.
 export function nombreCorto(sw) {
-  return [sw.nombre, sw.version].filter(Boolean).join(' ').trim()
+  return [sw.nombre, sw.version].map(v => (v || '').trim()).filter(Boolean).join(' ')
 }
 
 // Nombre con el que se guarda la evaluación y aparece en el historial.
 export function nombreEvaluacion(sw) {
   const base = nombreCorto(sw)
   if (!base) return 'Evaluación sin nombre'
-  return sw.organizacion ? `${base} — ${sw.organizacion}` : base
+  const org = (sw.organizacion || '').trim()
+  const completo = org ? `${base} — ${org}` : base
+  // El backend admite 250 caracteres: se acorta en vez de fallar al guardar.
+  return completo.length > 250 ? `${completo.slice(0, 249)}…` : completo
 }
 
 // Del formulario a los campos que espera la API.
 export function softwareAPayload(sw) {
   return {
-    software_nombre: sw.nombre,
-    version: sw.version,
-    licencia: sw.licencia,
-    proveedor: sw.proveedor,
-    organizacion: sw.organizacion,
-    evaluador: sw.evaluador,
+    // Sin espacios sobrantes: «  Moodle » y «Moodle» son el mismo software.
+    software_nombre: (sw.nombre || '').trim(),
+    version: (sw.version || '').trim(),
+    licencia: (sw.licencia || '').trim(),
+    proveedor: (sw.proveedor || '').trim(),
+    organizacion: (sw.organizacion || '').trim(),
+    evaluador: (sw.evaluador || '').trim(),
   }
 }
 

@@ -1,15 +1,17 @@
 // Menú lateral: marca, navegación con un icono en losange de color por entrada
 // y, al pie, una tarjeta con la metodología en la que se basa el sistema.
-import { IcoPanel, IcoNuevaEval, IcoHistorial, IcoOcultar, IcoCapas, IcoChispa } from './Iconos.jsx'
+import { IcoPanel, IcoNuevaEval, IcoHistorial, IcoOcultar, IcoCapas, IcoBuscar, IcoSubir, IcoTabla } from './Iconos.jsx'
 
 const ITEMS = [
   { id: 'dashboard',  label: 'Panel',            desc: 'Resumen y evaluaciones', tono: 'azul',   Icono: IcoPanel },
   { id: 'evaluacion', label: 'Nueva evaluación', desc: 'Asistente de 4 pasos',   tono: 'verde',  Icono: IcoNuevaEval },
+  { id: 'importar',   label: 'Evaluar con plantilla', desc: 'Suba su archivo Excel', tono: 'turquesa', Icono: IcoSubir },
   { id: 'historial',  label: 'Historial',        desc: 'Resultados guardados',   tono: 'morado', Icono: IcoHistorial },
-  { id: 'literatura', label: 'Literatura IA',    desc: 'Importancia sugerida',   tono: 'naranja', Icono: IcoChispa },
+  { id: 'literatura', label: 'Literatura IA',    desc: 'Importancia sugerida',   tono: 'naranja', Icono: IcoBuscar,
+    hijos: [{ id: 'literatura-tabla', label: 'Tabla de resultados', Icono: IcoTabla }] },
 ]
 
-export default function Sidebar({ page, onNavigate, onHide }) {
+export default function Sidebar({ page, onNavigate, onHide, ocultos = [] }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -27,19 +29,31 @@ export default function Sidebar({ page, onNavigate, onHide }) {
 
       <span className="sidebar-seccion">Navegación</span>
       <nav className="sidebar-nav">
-        {ITEMS.map(({ id, label, desc, tono, Icono }) => (
-          <button
-            key={id}
-            className={`sidebar-item sidebar-${tono}${page === id ? ' active' : ''}`}
-            onClick={() => onNavigate(id)}
-            aria-current={page === id ? 'page' : undefined}
-          >
-            <span className="sidebar-item-icono"><Icono /></span>
-            <span className="sidebar-item-texto">
-              <span className="sidebar-item-nombre">{label}</span>
-              <span className="sidebar-item-desc">{desc}</span>
-            </span>
-          </button>
+        {ITEMS.filter(({ id }) => !ocultos.includes(id)).map(({ id, label, desc, tono, Icono, hijos }) => (
+          <div key={id} className="sidebar-grupo">
+            <button
+              className={`sidebar-item sidebar-${tono}${page === id ? ' active' : ''}`}
+              onClick={() => onNavigate(id)}
+              aria-current={page === id ? 'page' : undefined}
+            >
+              <span className="sidebar-item-icono"><Icono /></span>
+              <span className="sidebar-item-texto">
+                <span className="sidebar-item-nombre">{label}</span>
+                <span className="sidebar-item-desc">{desc}</span>
+              </span>
+            </button>
+            {hijos?.map(h => (
+              <button
+                key={h.id}
+                className={`sidebar-subitem sidebar-${tono}${page === h.id ? ' active' : ''}`}
+                onClick={() => onNavigate(h.id)}
+                aria-current={page === h.id ? 'page' : undefined}
+              >
+                <span className="sidebar-subitem-icono"><h.Icono /></span>
+                <span>{h.label}</span>
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
 

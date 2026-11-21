@@ -38,7 +38,7 @@ function leerEstadoGuardado() {
   }
 }
 
-export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, onNavigate }) {
+export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, onNavigate, plantilla = true }) {
   const [guardado] = useState(leerEstadoGuardado)
   const [step, setStep] = useState(guardado?.step ?? 0)
   const [factores, setFactores] = useState([])
@@ -55,6 +55,10 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
   // Id de la evaluación guardada: lo necesita el panel de análisis para
   // recalcular sobre ella sin volver a enviar las respuestas.
   const [evaluacionId, setEvaluacionId] = useState(guardado?.evaluacionId ?? null)
+  // Al editar: ids de los factores que tenía la evaluación guardada. Una evaluación
+  // importada desde plantilla puede dejar factores fuera del cálculo; al guardar
+  // siguen fuera salvo que el decisor les asigne importancia ahora.
+  const [factoresGuardados, setFactoresGuardados] = useState(guardado?.factoresGuardados ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [cargandoFactores, setCargandoFactores] = useState(true)
@@ -62,9 +66,9 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId, factoresGuardados }))
     } catch { /* modo privado o sin espacio */ }
-  }, [step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId])
+  }, [step, software, evFactores, evSubfactores, evOrigenes, resultado, evaluacionId, factoresGuardados])
 
   // Carga factores y matriz IR con reintentos: en Docker el backend tarda unos
   // segundos en arrancar (migraciones + fixtures) y el primer fetch puede fallar.
@@ -99,6 +103,7 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
       const r = ev.respuestas || {}
       setSoftware(softwareDesdeApi(ev.software))
       setEvFactores(r.factores || {})
+      setFactoresGuardados(Object.keys(r.factores || {}))
       setEvSubfactores(r.subfactores || {})
       setEvOrigenes(r.origenes || {})
       setResultado(ev.resultado)
@@ -118,18 +123,29 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
   // «Nueva evaluación» desde el menú o el panel: se empieza de cero en vez de
   // recuperar el borrador (o el resultado) anterior. Solo se pregunta si hay una
   // evaluación a medias sin guardar; un resultado ya calculado está a salvo.
+  // Este efecto también corre al montar la página. Si se llega para EDITAR una
+  // evaluación no hay que reiniciar: antes se reiniciaba igualmente (bastaba con haber
+  // pulsado «Nueva evaluación» antes en la sesión) y se borraban las respuestas recién
+  // cargadas y se cancelaba la edición.
   useEffect(() => {
-    if (!reinicio) return
+    if (!reinicio || editarId) return
     const aMedias = step > 0 && step < 3 &&
       (Object.keys(evFactores).length > 0 || Object.keys(evSubfactores).length > 0)
     if (aMedias && !window.confirm('¿Descartar la evaluación en curso y empezar una nueva?')) return
     handleNuevaEvaluacion()
   }, [reinicio]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Al editar, un factor que no estaba en la evaluación guardada (quedó fuera al
+  // importarla) y que el decisor no ha tocado sigue fuera del cálculo.
+  function sigueFuera(f) {
+    return Boolean(editando && factoresGuardados &&
+      !factoresGuardados.includes(String(f.id)) && evFactores[f.id]?.importancia_decisor === undefined)
+  }
+
   // Subfactores sin responder de los factores que sí entrarán en el cálculo
   function contarPendientes() {
     return factores.reduce((n, f) => {
-      if (!esRelevante(f, evFactores, matrizIR)) return n
+      if (sigueFuera(f) || !esRelevante(f, evFactores, matrizIR)) return n
       return n + f.subfactores.filter(s => evSubfactores[s.id] === undefined).length
     }, 0)
   }
@@ -152,7 +168,7 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
     setLoading(true)
     setError(null)
     try {
-      const factoresPayload = factores.map(f => {
+      const factoresPayload = factores.filter(f => !sigueFuera(f)).map(f => {
         // Un factor sin importancia elegida se envía con la mínima, que es la que
         // muestra el formulario. La entrada puede existir sin nivel si el decisor
         // solo eligió el alcance de un factor 'Ambos'.
@@ -203,6 +219,7 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
     setResultado(null)
     setEvaluacionId(null)
     setEditando(null)
+    setFactoresGuardados(null)
     onFinEdicion?.()
   }
 
@@ -266,6 +283,7 @@ export default function EvaluacionPage({ editarId, reinicio = 0, onFinEdicion, o
       <div>
         {step === 0 && (
           <StepSoftware
+            plantilla={plantilla}
             software={software}
             onChange={setSoftware}
             onStart={() => setStep(1)}

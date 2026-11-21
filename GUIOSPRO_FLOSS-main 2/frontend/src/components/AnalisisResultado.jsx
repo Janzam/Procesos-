@@ -7,7 +7,7 @@
 // diagrama de líneas que sitúa cada factor en la escala 1–4 frente al umbral.
 import { useState, useEffect } from 'react'
 import {
-  getDiagnostico, getDeterminantes, pedirPlanNarrado, pedirInforme, getEstadoIA,
+  getDiagnostico, getDeterminantes, pedirPlanNarrado, pedirInforme, getInforme, getEstadoIA,
 } from '../api/guiosad.js'
 import { FODA_CLASS } from '../utils/recomendacion.js'
 import { IcoFactores, IcoMedidor, IcoResultados, IcoAlerta, IcoChispa } from './Iconos.jsx'
@@ -195,26 +195,69 @@ function Sensibilidad({ det }) {
       </p>
     )
   }
+  // Agrupadas por factor (en el orden del catálogo) y resumidas por la
+  // recomendación a la que llevarían, para leerlas de un vistazo.
+  const grupos = []
+  const porFactor = new Map()
+  det.determinantes.forEach(d => {
+    if (!porFactor.has(d.factor_nombre)) {
+      const g = { factor: d.factor_nombre, items: [] }
+      porFactor.set(d.factor_nombre, g)
+      grupos.push(g)
+    }
+    porFactor.get(d.factor_nombre).items.push(d)
+  })
+  const porResultado = {}
+  det.determinantes.forEach(d => {
+    porResultado[d.recomendacion_resultante] = (porResultado[d.recomendacion_resultante] || 0) + 1
+  })
+
   return (
     <>
-      <p className="an-texto">
-        {det.total_determinantes} de {det.total_respuestas} respuestas cambiarían por sí solas la
-        recomendación si se contestaran de otro modo. Conviene confirmarlas antes de decidir.
-      </p>
-      <ul className="an-lista">
-        {det.determinantes.map(d => (
-          <li key={d.subfactor_id}>
-            <div className="an-factor">
-              {d.factor_nombre}
-              <span className="an-sub">{d.subfactor_nombre}</span>
+      <div className="sens-resumen">
+        <div className="sens-resumen-cifra">
+          <b>{det.total_determinantes}</b><span>de {det.total_respuestas} respuestas</span>
+        </div>
+        <p>
+          Cambiarían <strong>por sí solas</strong> la recomendación si se contestaran de otro modo.
+          Conviene confirmarlas antes de decidir.
+        </p>
+        <div className="sens-resumen-recs">
+          {Object.entries(porResultado).sort().map(([rec, n]) => (
+            <span key={rec} className="sens-rec-total">
+              <span className={`sens-rec sens-rec-${rec}`}>{rec}</span> {n} {n === 1 ? 'respuesta' : 'respuestas'}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="sens-grupos">
+        {grupos.map(g => (
+          <section key={g.factor} className="sens-grupo">
+            <header>
+              <span className="sens-grupo-nombre">{g.factor}</span>
+              <span className="sens-grupo-cuenta">{g.items.length}</span>
+            </header>
+            <div className="sens-cols" aria-hidden="true">
+              <span>Criterio</span><span>Respuesta</span><span>Pasaría a</span>
             </div>
-            <div className="an-cambio">
-              <span className="chip chip-morado">{d.valor_actual} → {d.valor_alternativo}</span>
-              la recomendación pasaría a <strong>{d.recomendacion_resultante}</strong>
-            </div>
-          </li>
+            <ul>
+              {g.items.map(d => (
+                <li key={d.subfactor_id}>
+                  <span className="sens-sub">{d.subfactor_nombre}</span>
+                  <span className="sens-cambio">
+                    <b>{d.valor_actual}</b><span>→</span><b>{d.valor_alternativo}</b>
+                  </span>
+                  <span className={`sens-rec sens-rec-${d.recomendacion_resultante}`}
+                        title={`La recomendación pasaría a ${d.recomendacion_resultante}`}>
+                    {d.recomendacion_resultante}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </>
   )
 }
@@ -232,17 +275,30 @@ function Avisos({ diag }) {
 }
 
 // ── Informe ejecutivo (solo con el asistente configurado) ───────────
+// El informe se guarda en la evaluación: al volver a abrirla aparece el mismo
+// texto sin pedirlo otra vez. Solo se marca como desactualizado si la
+// evaluación (o el resultado, por un cambio de catálogo) ya no es la misma.
 function Informe({ evaluacionId }) {
-  const [texto, setTexto] = useState(null)
+  const [informe, setInforme] = useState(null)
+  const [leyendo, setLeyendo] = useState(true)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState(null)
 
-  async function pedir() {
+  useEffect(() => {
+    let vigente = true
+    setLeyendo(true)
+    getInforme(evaluacionId)
+      .then(r => { if (vigente) setInforme(r.informe ? r : null) })
+      .catch(() => {})
+      .finally(() => { if (vigente) setLeyendo(false) })
+    return () => { vigente = false }
+  }, [evaluacionId])
+
+  async function pedir(forzar) {
     setCargando(true)
     setError(null)
     try {
-      const res = await pedirInforme(evaluacionId)
-      setTexto(res.informe)
+      setInforme(await pedirInforme(evaluacionId, forzar))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -250,20 +306,36 @@ function Informe({ evaluacionId }) {
     }
   }
 
+  if (leyendo) return <p className="an-vacio">Cargando informe…</p>
+  const fecha = informe?.fecha ? new Date(informe.fecha).toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short' }) : ''
+
   return (
     <>
-      {!texto && (
+      {!informe && (
         <div className="an-accion">
           <p className="an-texto">
             El asistente puede redactar este análisis en prosa para presentarlo a la dirección.
+            Se guarda con la evaluación y se mantiene mientras no la modifique.
           </p>
-          <button className="btn btn-primary" onClick={pedir} disabled={cargando}>
+          <button className="btn btn-primary" onClick={() => pedir(false)} disabled={cargando}>
             {cargando ? 'Redactando…' : 'Redactar informe'}
           </button>
         </div>
       )}
+      {informe && (
+        <div className={`informe-estado ${informe.vigente ? '' : 'desactualizado'}`}>
+          <span>
+            {informe.vigente
+              ? <>Informe guardado{fecha && <> · {fecha}</>}{informe.modelo && <> · {informe.modelo}</>}</>
+              : <>El resultado cambió desde que se redactó este informe{fecha && <> ({fecha})</>}.</>}
+          </span>
+          <button type="button" className="informe-rehacer" onClick={() => pedir(true)} disabled={cargando}>
+            {cargando ? 'Redactando…' : informe.vigente ? 'Volver a redactar' : 'Actualizar informe'}
+          </button>
+        </div>
+      )}
       {error && <div className="error-msg">{error}</div>}
-      <Narracion texto={texto} />
+      <Narracion texto={informe?.informe} />
     </>
   )
 }

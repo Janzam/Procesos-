@@ -7,8 +7,28 @@ const BASE = '/api'
 // indicado; una respuesta sin cuerpo (204) devuelve undefined.
 async function pedir(ruta, mensajeError, opciones) {
   const res = await fetch(`${BASE}${ruta}`, opciones)
-  if (!res.ok) throw new Error(mensajeError)
+  if (!res.ok) {
+    // Si el backend explica el motivo (validación), se muestra en vez del genérico.
+    const cuerpo = await res.json().catch(() => null)
+    throw new Error(motivoError(cuerpo) || mensajeError)
+  }
   return res.status === 204 ? undefined : res.json()
+}
+
+const ETIQUETAS_CAMPO = {
+  nombre: 'Nombre', software_nombre: 'Nombre del software', version: 'Versión', licencia: 'Licencia',
+  proveedor: 'Proveedor', organizacion: 'Organización', evaluador: 'Evaluador', factores: 'Factores',
+}
+
+// Convierte la respuesta de error de DRF ({detail} o {campo: [mensajes]}) en una frase.
+function motivoError(cuerpo) {
+  if (!cuerpo || typeof cuerpo !== 'object') return ''
+  if (typeof cuerpo.detail === 'string') return cuerpo.detail
+  const partes = Object.entries(cuerpo).map(([campo, msgs]) => {
+    const texto = Array.isArray(msgs) ? msgs.filter(m => typeof m === 'string').join(' ') : (typeof msgs === 'string' ? msgs : '')
+    return texto ? `${ETIQUETAS_CAMPO[campo] || campo}: ${texto}` : ''
+  }).filter(Boolean)
+  return partes.join(' · ')
 }
 
 function conCuerpo(method, datos) {
@@ -45,6 +65,28 @@ export function getDashboard() {
 
 export function getEvaluacion(id) {
   return pedir(`/evaluaciones/${id}/`, 'Error al cargar evaluación')
+}
+
+// Plantilla Excel para evaluar sin el asistente. El backend la genera en cada
+// descarga a partir del catálogo vigente; se descarga con un enlace directo para
+// que el navegador no la bloquee.
+export const URL_PLANTILLA = `${BASE}/evaluaciones/plantilla/`
+
+// Sube la plantilla llena. Si el archivo tiene errores, el backend explica cuáles
+// y aquí se devuelven tal cual, en vez de un mensaje genérico.
+export async function importarPlantilla(archivo) {
+  const datos = new FormData()
+  datos.append('archivo', archivo)
+  const res = await fetch(`${BASE}/evaluaciones/importar/`, { method: 'POST', body: datos })
+  const cuerpo = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const errores = cuerpo.archivo || cuerpo.factores
+      || [motivoError(cuerpo) || 'No se pudo importar la plantilla.']
+    const e = new Error(errores[0])
+    e.errores = errores
+    throw e
+  }
+  return cuerpo
 }
 
 export function getMatrizIR() {
@@ -112,8 +154,14 @@ export function pedirSugerencias(factorId, software) {
   })
 }
 
-export function pedirInforme(id) {
-  return enviar(`/evaluaciones/${id}/informe/`)
+// Informe guardado (no llama al modelo). Devuelve { informe, vigente, fecha, modelo }.
+export function getInforme(id) {
+  return pedir(`/evaluaciones/${id}/informe/`, 'Error al cargar el informe')
+}
+
+// Redacta el informe si no hay uno vigente; con forzar=true lo vuelve a redactar.
+export function pedirInforme(id, forzar = false) {
+  return enviar(`/evaluaciones/${id}/informe/`, { forzar })
 }
 
 export function pedirPlanNarrado(id) {
@@ -124,6 +172,16 @@ export function pedirPlanNarrado(id) {
 // Importancia de la literatura (innovación CP2)
 // La IA clasifica artículos; el cálculo de IL e IS lo hace el backend.
 // ─────────────────────────────────────────────────────────────────────
+
+// Funciones opcionales activas en el servidor (p. ej. { plantilla: true }).
+export function getFunciones() {
+  return pedir('/evaluaciones/funciones/', 'Error al consultar las funciones')
+}
+
+// Catálogo vigente: versión, origen de la IS (tesis o corrida aplicada) e IS por factor.
+export function getEstadoCatalogo() {
+  return pedir('/evaluaciones/catalogo/', 'Error al consultar el catálogo')
+}
 
 export function getConfigLiteratura() {
   return pedir('/literatura/config/', 'Error al cargar la configuración de literatura')

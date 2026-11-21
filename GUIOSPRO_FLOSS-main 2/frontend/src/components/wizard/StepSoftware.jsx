@@ -7,7 +7,7 @@ import { getHistorial, getEvaluacion } from '../../api/guiosad.js'
 import { REC_V, REC_CORTO } from '../../utils/recomendacion.js'
 import { exportarTodas, precargarExportacion } from '../../utils/exportacion.js'
 import { fechaCorta } from '../../utils/fecha.js'
-import { IcoBuscar, IcoPanel, IcoHistorial, IcoEditar, IcoPdf, IcoExcel, IcoMas } from '../Iconos.jsx'
+import { IcoBuscar, IcoPanel, IcoHistorial, IcoEditar, IcoPdf, IcoExcel, IcoMas, IcoSubir } from '../Iconos.jsx'
 
 const LICENCIAS = [
   'GPL / AGPL',
@@ -29,7 +29,7 @@ function Campo({ etiqueta, children }) {
   )
 }
 
-export default function StepSoftware({ software, onChange, onStart, onReabrir, onIr, onError }) {
+export default function StepSoftware({ software, onChange, onStart, onReabrir, onIr, onError, plantilla = true }) {
   const set = (campo) => (e) => onChange({ ...software, [campo]: e.target.value })
   const [historial, setHistorial] = useState([])
   const [busqueda, setBusqueda] = useState('')
@@ -78,6 +78,8 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir, o
   const ACCESOS = [
     { id: 'panel', etiqueta: 'Panel', tono: 'azul', Icono: IcoPanel, hacer: () => onIr?.('dashboard') },
     { id: 'historial', etiqueta: 'Historial', tono: 'morado', Icono: IcoHistorial, hacer: () => onIr?.('historial') },
+    ...(plantilla ? [{ id: 'plantilla', etiqueta: 'Desde plantilla', tono: 'turquesa', Icono: IcoSubir, hacer: () => onIr?.('importar'),
+      pista: 'Evaluar subiendo la plantilla Excel llena' }] : []),
     { id: 'ultima', etiqueta: 'Última evaluación', tono: 'turquesa', Icono: IcoEditar,
       hacer: () => onReabrir?.(historial[0].id), inactivo: !historial.length,
       pista: historial[0] ? `Reabrir «${historial[0].nombre}»` : 'Aún no hay evaluaciones' },
@@ -137,11 +139,12 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir, o
               className="field-input"
               placeholder="Moodle, Odoo, LibreOffice…"
               value={software.nombre}
+              maxLength={200}
               onChange={set('nombre')}
             />
           </Campo>
           <Campo etiqueta="Versión">
-            <input className="field-input" placeholder="4.3" value={software.version} onChange={set('version')} />
+            <input className="field-input" placeholder="4.3" maxLength={50} value={software.version} onChange={set('version')} />
           </Campo>
           <Campo etiqueta="Tipo de licencia">
             <select className="field-input" value={software.licencia} onChange={set('licencia')}>
@@ -150,13 +153,13 @@ export default function StepSoftware({ software, onChange, onStart, onReabrir, o
             </select>
           </Campo>
           <Campo etiqueta="Proveedor o comunidad">
-            <input className="field-input" placeholder="Moodle HQ" value={software.proveedor} onChange={set('proveedor')} />
+            <input className="field-input" placeholder="Moodle HQ" maxLength={200} value={software.proveedor} onChange={set('proveedor')} />
           </Campo>
           <Campo etiqueta="Organización">
-            <input className="field-input" placeholder="Universidad Estatal de Milagro" value={software.organizacion} onChange={set('organizacion')} />
+            <input className="field-input" placeholder="Universidad Estatal de Milagro" maxLength={200} value={software.organizacion} onChange={set('organizacion')} />
           </Campo>
           <Campo etiqueta="Evaluador">
-            <input className="field-input" placeholder="Nombre del decisor" value={software.evaluador} onChange={set('evaluador')} />
+            <input className="field-input" placeholder="Nombre del decisor" maxLength={200} value={software.evaluador} onChange={set('evaluador')} />
           </Campo>
         </div>
 

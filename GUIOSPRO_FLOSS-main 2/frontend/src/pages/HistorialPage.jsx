@@ -37,7 +37,35 @@ function FichaSoftware({ software }) {
   )
 }
 
-export default function HistorialPage({ onNavigate, verId }) {
+// Qué entró en el cálculo de una evaluación importada desde plantilla y qué quedó fuera.
+function ResumenImportacion({ resumen }) {
+  const { factores_incluidos: dentro = [], factores_excluidos: fuera = [],
+          dimensiones_excluidas: dims = [], avisos = [] } = resumen
+  return (
+    <section className="card imp-resumen">
+      <h3 className="imp-resumen-titulo">Evaluación importada desde plantilla</h3>
+      <p className="imp-resumen-cifras">
+        <b>{dentro.length}</b> factores entraron en el cálculo
+        {fuera.length > 0 && <> · <b>{fuera.length}</b> quedaron fuera</>}
+        {dims.length > 0 && <> · dimensión{dims.length > 1 ? 'es' : ''} sin datos: <b>{dims.join(', ')}</b></>}
+      </p>
+      {fuera.length > 0 && (
+        <details className="imp-resumen-det">
+          <summary>Factores fuera del cálculo</summary>
+          <ul>{fuera.map(f => <li key={f.factor}><b>{f.factor}</b> ({f.dimension}): {f.motivo}</li>)}</ul>
+        </details>
+      )}
+      {avisos.length > 0 && (
+        <details className="imp-resumen-det">
+          <summary>Avisos ({avisos.length})</summary>
+          <ul>{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>
+        </details>
+      )}
+    </section>
+  )
+}
+
+export default function HistorialPage({ onNavigate, verId, resumenImportacion }) {
   const [historial, setHistorial] = useState([])
   const [detalle, setDetalle] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -149,6 +177,8 @@ export default function HistorialPage({ onNavigate, verId }) {
           </div>
 
           <FichaSoftware software={detalle.software} />
+
+          {resumenImportacion?.id === detalle.id && <ResumenImportacion resumen={resumenImportacion} />}
 
           <StepResultados
             resultado={detalle.resultado}
