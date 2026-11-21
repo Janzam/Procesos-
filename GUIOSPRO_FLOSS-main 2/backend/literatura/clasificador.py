@@ -42,6 +42,7 @@ class GroqSinCupo(RuntimeError):
 MODELOS_POR_DEFECTO = {
     "anthropic": "claude-opus-5-5",
     "groq": "openai/gpt-oss-120b",
+    "openai": "gpt-5-mini",
     "demo": "demo-determinista",
 }
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -90,6 +91,8 @@ def clave_configurada():
         return True
     if proveedor_actual == "groq":
         return bool(_claves_groq())
+    if proveedor_actual == "openai":
+        return bool(getattr(settings, "OPENAI_API_KEY", ""))
     return bool(getattr(settings, "ANTHROPIC_API_KEY", ""))
 
 
@@ -402,10 +405,25 @@ def _llamar_groq(sistema, plantilla, modelo):
     raise RuntimeError("Groq no devolvió una respuesta válida")
 
 
+def _llamar_openai(sistema, plantilla, modelo):
+    from guiosad import openai_api
+
+    texto, modelo_usado, uso = openai_api.chat(
+        sistema, plantilla, modelo=modelo, json_mode=True, max_tokens=4000, esfuerzo="low",
+    )
+    try:
+        crudo = parsear_json(texto)
+    except ValueError as exc:
+        raise RespuestaIAMalformada(texto, modelo_usado, uso, str(exc)) from exc
+    return crudo, modelo_usado, uso
+
+
 def _llamar_con_uso(sistema, plantilla):
     modelo = modelo_activo()
     if proveedor() == "groq":
         return _llamar_groq(sistema, plantilla, modelo)
+    if proveedor() == "openai":
+        return _llamar_openai(sistema, plantilla, modelo)
     return _llamar_anthropic(sistema, plantilla, modelo)
 
 

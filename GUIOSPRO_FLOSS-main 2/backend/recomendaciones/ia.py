@@ -47,10 +47,22 @@ def disponible() -> bool:
     return estado()["disponible"]
 
 
+def _proveedor() -> str:
+    return (getattr(settings, "IA_PROVEEDOR", "anthropic") or "anthropic").lower()
+
+
 def estado() -> dict:
     """Describe al cliente si el asistente esta disponible y por que no, si no lo esta."""
     if not getattr(settings, "IA_HABILITADA", True):
         return {"disponible": False, "motivo": "El asistente esta desactivado en esta instalacion."}
+    if _proveedor() in ("openai", "groq"):
+        from guiosad import openai_api
+        p = _proveedor()
+        if not openai_api.clave(p):
+            variable = "GROQ_API_KEYS" if p == "groq" else "OPENAI_API_KEY"
+            return {"disponible": False,
+                    "motivo": f"No hay credencial configurada. Defina {variable} para activarlo."}
+        return {"disponible": True, "motivo": "", "modelo": openai_api.modelo_por_defecto(p)}
     if not getattr(settings, "ANTHROPIC_API_KEY", ""):
         return {"disponible": False,
                 "motivo": "No hay credencial configurada. Defina ANTHROPIC_API_KEY para activarlo."}
@@ -71,6 +83,9 @@ def _cliente():
 
 def _llamar(system, prompt, *, formato=None, efecto="medium", max_tokens=16000):
     """Una llamada al modelo, con los errores del proveedor traducidos a IANoDisponible."""
+    if _proveedor() in ("openai", "groq"):
+        return _llamar_openai(system, prompt, formato=formato, efecto=efecto, max_tokens=max_tokens)
+
     import anthropic
 
     salida = {"effort": efecto}
@@ -99,6 +114,31 @@ def _llamar(system, prompt, *, formato=None, efecto="medium", max_tokens=16000):
         raise IANoDisponible("El modelo declino responder a esta peticion.")
 
     texto = next((b.text for b in respuesta.content if b.type == "text"), "")
+    if not texto:
+        raise IANoDisponible("El modelo no devolvio contenido.")
+    return texto
+
+
+def _llamar_openai(system, prompt, *, formato=None, efecto="medium", max_tokens=16000):
+    """Misma llamada que _llamar, pero contra la API de OpenAI (ChatGPT)."""
+    from guiosad import openai_api
+
+    if not disponible():
+        raise IANoDisponible(estado()["motivo"])
+    if formato is not None:
+        # Modo JSON: el esquema se describe en las instrucciones; el codigo que
+        # recibe la respuesta ya valida cada campo y descarta lo que no encaja.
+        system = (f"{system}\n\nResponde SOLO con un objeto JSON valido que cumpla "
+                  f"este JSON Schema:\n{json.dumps(formato, ensure_ascii=False)}")
+    try:
+        texto, _, _ = openai_api.chat(
+            system, prompt, json_mode=formato is not None, proveedor=_proveedor(),
+            max_tokens=max_tokens, esfuerzo=efecto if efecto in ("low", "medium", "high") else "medium",
+        )
+    except openai_api.OpenAIError as e:
+        raise IANoDisponible(
+            f"El proveedor del modelo respondio con un error ({e.status})." if e.status else str(e)
+        ) from e
     if not texto:
         raise IANoDisponible("El modelo no devolvio contenido.")
     return texto

@@ -22,7 +22,7 @@ class Command(BaseCommand):
                             help="JSON con {id_o_nombre: TC} para validar solo el cálculo, sin red")
         parser.add_argument("--modo-demo", action="store_true",
                             help="Usa el clasificador determinista de demostración (no válido para la tesis)")
-        parser.add_argument("--proveedor", choices=["anthropic", "groq", "demo"], default=None,
+        parser.add_argument("--proveedor", choices=["anthropic", "groq", "openai", "demo"], default=None,
                             help="Sobrescribe LIT_PROVEEDOR_IA para esta corrida")
         parser.add_argument("--modelo", default=None,
                             help="Sobrescribe LIT_MODELO para esta corrida")
